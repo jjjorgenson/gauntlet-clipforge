@@ -32,7 +32,7 @@ export const Slider: React.FC<SliderProps> = ({
   'aria-label': ariaLabel,
   onStart,
   onEnd,
-  ...props
+  ...restProps
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -147,7 +147,7 @@ export const Slider: React.FC<SliderProps> = ({
   const handleBlur = () => setShowTooltip(false);
 
   return (
-    <div className={`relative ${className}`} {...props}>
+    <div className={`relative ${className}`} {...restProps}>
       {/* Slider Track */}
       <div
         ref={sliderRef}

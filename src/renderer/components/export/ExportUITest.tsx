@@ -22,6 +22,7 @@ export const ExportUITest: React.FC = () => {
     totalFrames,
     fps,
     eta,
+    exportId,
     updateConfig,
     startExport,
     cancelExport,
@@ -64,8 +65,9 @@ export const ExportUITest: React.FC = () => {
 
   // Handle export cancel
   const handleCancelExport = async () => {
+    if (!exportId) return;
     try {
-      await window.api?.export?.cancel?.({});
+      await window.api?.export?.cancel?.({ exportId });
     } catch (error) {
       console.error('Failed to cancel export:', error);
     }
