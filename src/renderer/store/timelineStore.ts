@@ -8,10 +8,9 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { 
-  TimelineStoreContract, 
-  Clip, 
-  Track 
+  TimelineStoreContract
 } from '../../shared/contracts/stores';
+import { Clip, Track } from '../../shared/types';
 
 // Default timeline state
 const defaultState: TimelineStoreContract.State = {

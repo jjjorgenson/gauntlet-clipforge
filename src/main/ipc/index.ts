@@ -14,6 +14,7 @@ import {
   ProjectIPC, 
   SystemIPC 
 } from '../../shared/contracts/ipc';
+import { registerMediaHandlers } from './mediaHandlers';
 
 /**
  * Register all IPC handlers
@@ -24,71 +25,11 @@ import {
 export function registerIpcHandlers(): void {
   console.log('📡 Registering IPC handlers...');
 
-  // ============================================================================
-  // MEDIA HANDLERS
-  // ============================================================================
-  
-  ipcMain.handle(IPC_CHANNELS.MEDIA_IMPORT, async (event, req: MediaIPC.ImportRequest): Promise<MediaIPC.ImportResponse> => {
-    console.log('📁 Media import requested:', req.filePaths);
-    
-    // Mock response - Track 2 will implement real FFmpeg integration
-    const mockClips = req.filePaths.map((path, index) => ({
-      id: `clip-${index}`,
-      sourceFile: path,
-      startTime: 0,
-      endTime: 30, // Mock 30 second duration
-      trimIn: 0,
-      trimOut: 30,
-      trackId: 'track-1',
-      metadata: {
-        duration: 30,
-        resolution: { width: 1920, height: 1080 },
-        frameRate: 30,
-        codec: 'h264',
-        size: 50000000, // 50MB
-      },
-    }));
-    
-    return { clips: mockClips };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.MEDIA_GET_METADATA, async (event, req: MediaIPC.GetMetadataRequest): Promise<MediaIPC.GetMetadataResponse> => {
-    console.log('📊 Media metadata requested:', req.filePath);
-    
-    // Mock metadata - Track 2 will implement real FFprobe integration
-    const mockMetadata = {
-      duration: 45.5,
-      resolution: { width: 1920, height: 1080 },
-      frameRate: 29.97,
-      codec: 'h264',
-      size: 75000000, // 75MB
-    };
-    
-    return { metadata: mockMetadata };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.MEDIA_OPEN_FILE_PICKER, async (event, req: MediaIPC.OpenFilePickerRequest): Promise<MediaIPC.OpenFilePickerResponse> => {
-    console.log('📂 File picker requested:', req);
-    
-    // Mock file picker - Track 2 will implement real dialog
-    const mockPaths = req.allowMultiple 
-      ? ['/path/to/video1.mp4', '/path/to/video2.mov']
-      : ['/path/to/video.mp4'];
-    
-    return { filePaths: mockPaths };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.MEDIA_GENERATE_THUMBNAIL, async (event, req: MediaIPC.GenerateThumbnailRequest): Promise<MediaIPC.GenerateThumbnailResponse> => {
-    console.log('🖼️ Thumbnail generation requested:', req);
-    
-    // Mock thumbnail - Track 2 will implement real FFmpeg thumbnail generation
-    const mockThumbnail = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-    
-    return { thumbnail: mockThumbnail };
-  });
+  // Register Track 2: Media handlers (real implementation)
+  registerMediaHandlers();
 
   // ============================================================================
-  // RECORDING HANDLERS
+  // RECORDING HANDLERS (Mock - Track 3 will implement)
   // ============================================================================
   
   ipcMain.handle(IPC_CHANNELS.RECORDING_GET_SOURCES, async (event, req: RecordingIPC.GetSourcesRequest): Promise<RecordingIPC.GetSourcesResponse> => {

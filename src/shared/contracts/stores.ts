@@ -173,7 +173,7 @@ export namespace RecordingStoreContract {
     setFrameRate: (fps: number) => void;
     
     // UI control
-    showSourcePicker: (show: boolean) => void;
+    setShowSourcePicker: (show: boolean) => void;
     startCountdown: () => Promise<void>;
     
     // Internal state updates
