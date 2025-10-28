@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { MediaLibrary } from './components/media/MediaLibrary';
 import { VideoPreview } from './components/preview/VideoPreview';
+import { RecordDialog } from './components/recording/RecordDialog';
 
 export const App: React.FC = () => {
   const [ipcTest, setIpcTest] = useState<{
@@ -13,6 +14,14 @@ export const App: React.FC = () => {
     result?: any;
     error?: string;
   }>({ status: 'idle' });
+
+  const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
+
+  const handleRecordingComplete = (filePath: string) => {
+    console.log('Recording completed and saved:', filePath);
+    // In a real app, this would trigger a refresh of the media library
+    alert(`Recording saved successfully!\nFile: ${filePath}`);
+  };
 
   const testMediaImport = async () => {
     if (!window.api) {
@@ -63,10 +72,10 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen bg-editor-bg text-white flex flex-col">
       {/* Header */}
-      <div className="bg-editor-panel border-b border-editor-border p-4">
-        <h1 className="text-2xl font-bold text-blue-400">🎬 ClipForge</h1>
-        <p className="text-sm text-gray-400">Track 10: Video Preview UI Test</p>
-      </div>
+             <div className="bg-editor-panel border-b border-editor-border p-4">
+               <h1 className="text-2xl font-bold text-blue-400">🎬 ClipForge</h1>
+               <p className="text-sm text-gray-400">Track 11: Recording UI Test</p>
+             </div>
 
       {/* Main Content */}
       <div className="flex-1 flex">
@@ -89,23 +98,30 @@ export const App: React.FC = () => {
           <h2 className="text-xl font-semibold mb-4 text-green-400">🔗 IPC Communication Test</h2>
           
           <div className="space-y-4">
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={testMediaImport}
-                disabled={ipcTest.status === 'testing'}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded text-sm font-medium transition-colors"
-              >
-                Test Media Import
-              </button>
-              
-              <button
-                onClick={testSystemPath}
-                disabled={ipcTest.status === 'testing'}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded text-sm font-medium transition-colors"
-              >
-                Test System Path
-              </button>
-            </div>
+                     <div className="flex gap-4 justify-center">
+                       <button
+                         onClick={testMediaImport}
+                         disabled={ipcTest.status === 'testing'}
+                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded text-sm font-medium transition-colors"
+                       >
+                         Test Media Import
+                       </button>
+
+                       <button
+                         onClick={testSystemPath}
+                         disabled={ipcTest.status === 'testing'}
+                         className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 rounded text-sm font-medium transition-colors"
+                       >
+                         Test System Path
+                       </button>
+
+                       <button
+                         onClick={() => setIsRecordDialogOpen(true)}
+                         className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-medium transition-colors"
+                       >
+                         Record Screen
+                       </button>
+                     </div>
 
             {/* Test Results */}
             <div className="mt-4 p-4 bg-gray-700 rounded text-left">
@@ -169,39 +185,50 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Track 10 Status */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 text-green-400">Track 10 Status</h2>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✅</span>
-              <span>VideoPreview container component</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✅</span>
-              <span>VideoPlayer HTML5 video element</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✅</span>
-              <span>PlaybackControls with custom controls</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✅</span>
-              <span>Timeline sync with currentTime</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✅</span>
-              <span>Scrubbing updates video and timeline</span>
-            </div>
-          </div>
-        </div>
+                 {/* Track 11 Status */}
+                 <div className="bg-gray-800 rounded-lg p-6">
+                   <h2 className="text-lg font-semibold mb-4 text-green-400">Track 11 Status</h2>
+                   <div className="space-y-2 text-sm">
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-500">✅</span>
+                       <span>RecordDialog modal container</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-500">✅</span>
+                       <span>SourceSelector for screen/window</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-500">✅</span>
+                       <span>CameraPreview with webcam overlay</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-500">✅</span>
+                       <span>RecordControls with countdown timer</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-500">✅</span>
+                       <span>MediaRecorder API integration</span>
+                     </div>
+                     <div className="flex items-center gap-2">
+                       <span className="text-green-500">✅</span>
+                       <span>Recording flow and save functionality</span>
+                     </div>
+                   </div>
+                 </div>
 
         <div className="mt-8 text-sm text-gray-500">
-          <p>🎯 Track 10 Complete: Video Preview UI ready for integration</p>
+          <p>🎯 Track 11 Complete: Recording UI ready for integration</p>
         </div>
           </div>
         </div>
       </div>
+
+      {/* Recording Dialog */}
+      <RecordDialog
+        isOpen={isRecordDialogOpen}
+        onClose={() => setIsRecordDialogOpen(false)}
+        onRecordingComplete={handleRecordingComplete}
+      />
     </div>
   );
 };
