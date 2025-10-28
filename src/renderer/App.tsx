@@ -1,9 +1,10 @@
 /**
  * Root React Component
- * Track 1 Test: IPC Communication
+ * Track 8 Test: Media Library UI
  */
 
 import React, { useState, useEffect } from 'react';
+import { MediaLibrary } from './components/media/MediaLibrary';
 
 export const App: React.FC = () => {
   const [ipcTest, setIpcTest] = useState<{
@@ -59,12 +60,23 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-      <div className="text-center max-w-2xl w-full">
-        <h1 className="text-5xl font-bold mb-4 text-blue-400">🎬 ClipForge</h1>
-        <p className="text-xl text-gray-400 mb-8">
-          Track 1: IPC Infrastructure Test
-        </p>
+    <div className="h-screen bg-editor-bg text-white flex flex-col">
+      {/* Header */}
+      <div className="bg-editor-panel border-b border-editor-border p-4">
+        <h1 className="text-2xl font-bold text-blue-400">🎬 ClipForge</h1>
+        <p className="text-sm text-gray-400">Track 8: Media Library UI Test</p>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Media Library Panel */}
+        <div className="w-1/3 border-r border-editor-border">
+          <MediaLibrary />
+        </div>
+
+        {/* Test Panel */}
+        <div className="flex-1 p-6">
+          <div className="max-w-2xl">
         
         {/* IPC Test Section */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -151,33 +163,35 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Track 1 Status */}
+        {/* Track 8 Status */}
         <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 text-green-400">Track 1 Status</h2>
+          <h2 className="text-lg font-semibold mb-4 text-green-400">Track 8 Status</h2>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>Preload script exposes complete IpcAPI</span>
+              <span>MediaLibrary container component</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>All IPC channels registered with mock handlers</span>
+              <span>MediaItem with thumbnail and metadata</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>Main process calls registerIpcHandlers()</span>
+              <span>MediaGrid with responsive layout</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className={ipcTest.status === 'success' ? 'text-green-500' : 'text-yellow-500'}>
-                {ipcTest.status === 'success' ? '✅' : '⏳'}
-              </span>
-              <span>Renderer can call window.api methods</span>
+              <span className="text-green-500">✅</span>
+              <span>ImportButton with drag & drop</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-500">✅</span>
+              <span>Drag-and-drop to timeline ready</span>
             </div>
           </div>
         </div>
 
         <div className="mt-8 text-sm text-gray-500">
-          <p>🎯 Track 1 Complete: IPC infrastructure ready for Track 2-5</p>
+          <p>🎯 Track 8 Complete: Media Library UI ready for integration</p>
         </div>
       </div>
     </div>
