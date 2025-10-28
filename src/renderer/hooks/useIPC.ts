@@ -7,6 +7,7 @@
 
 import { useState, useCallback } from 'react';
 import { useStore } from '../store';
+import '../../shared/contracts/ipc'; // Import for global window.api declaration
 
 // IPC operation state
 interface IPCOperationState {

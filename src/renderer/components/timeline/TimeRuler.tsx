@@ -6,7 +6,6 @@
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { TimelineComponentProps } from '../../shared/contracts/components';
 
 // Time ruler constants
 const PIXELS_PER_SECOND_BASE = 100; // Base pixels per second at zoom 1.0
@@ -24,7 +23,13 @@ const COLORS = {
   playhead: '#ff4757'
 };
 
-export const TimeRuler: React.FC<TimelineComponentProps.TimeRuler> = ({
+export const TimeRuler: React.FC<{
+  duration: number;
+  zoom: number;
+  scrollLeft: number;
+  currentTime: number;
+  onSeek: (time: number) => void;
+}> = ({
   duration,
   zoom,
   scrollLeft,
@@ -32,7 +37,7 @@ export const TimeRuler: React.FC<TimelineComponentProps.TimeRuler> = ({
   onSeek
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   // Calculate pixels per second based on zoom
   const pixelsPerSecond = PIXELS_PER_SECOND_BASE * zoom;

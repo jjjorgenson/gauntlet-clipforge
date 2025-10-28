@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MediaLibrary } from './components/media/MediaLibrary';
+import { VideoPreview } from './components/preview/VideoPreview';
 
 export const App: React.FC = () => {
   const [ipcTest, setIpcTest] = useState<{
@@ -64,18 +65,23 @@ export const App: React.FC = () => {
       {/* Header */}
       <div className="bg-editor-panel border-b border-editor-border p-4">
         <h1 className="text-2xl font-bold text-blue-400">🎬 ClipForge</h1>
-        <p className="text-sm text-gray-400">Track 8: Media Library UI Test</p>
+        <p className="text-sm text-gray-400">Track 10: Video Preview UI Test</p>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex">
         {/* Media Library Panel */}
-        <div className="w-1/3 border-r border-editor-border">
+        <div className="w-1/4 border-r border-editor-border">
           <MediaLibrary />
         </div>
 
+        {/* Video Preview Panel */}
+        <div className="w-1/2 border-r border-editor-border p-4">
+          <VideoPreview />
+        </div>
+
         {/* Test Panel */}
-        <div className="flex-1 p-6">
+        <div className="w-1/4 p-6">
           <div className="max-w-2xl">
         
         {/* IPC Test Section */}
@@ -163,36 +169,36 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Track 8 Status */}
+        {/* Track 10 Status */}
         <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4 text-green-400">Track 8 Status</h2>
+          <h2 className="text-lg font-semibold mb-4 text-green-400">Track 10 Status</h2>
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>MediaLibrary container component</span>
+              <span>VideoPreview container component</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>MediaItem with thumbnail and metadata</span>
+              <span>VideoPlayer HTML5 video element</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>MediaGrid with responsive layout</span>
+              <span>PlaybackControls with custom controls</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>ImportButton with drag & drop</span>
+              <span>Timeline sync with currentTime</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-green-500">✅</span>
-              <span>Drag-and-drop to timeline ready</span>
+              <span>Scrubbing updates video and timeline</span>
             </div>
           </div>
         </div>
 
-            <div className="mt-8 text-sm text-gray-500">
-              <p>🎯 Track 8 Complete: Media Library UI ready for integration</p>
-            </div>
+        <div className="mt-8 text-sm text-gray-500">
+          <p>🎯 Track 10 Complete: Video Preview UI ready for integration</p>
+        </div>
           </div>
         </div>
       </div>
