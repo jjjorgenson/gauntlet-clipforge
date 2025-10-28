@@ -1,0 +1,70 @@
+appId: com.clipforge.app
+productName: ClipForge
+copyright: Copyright © 2025
+
+# Directories
+directories:
+  output: release
+  buildResources: resources
+
+# Files to include
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - node_modules/**/*
+  - package.json
+
+# Files to exclude
+extraFiles:
+  - from: resources/bin
+    to: resources/bin
+    filter:
+      - "**/*"
+
+# Platform-specific settings
+win:
+  target:
+    - nsis
+  icon: resources/icon.ico
+  
+mac:
+  target:
+    - dmg
+  icon: resources/icon.icns
+  category: public.app-category.video
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+linux:
+  target:
+    - AppImage
+  icon: resources/icon.png
+  category: Video
+
+# NSIS installer (Windows)
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+# DMG settings (macOS)
+dmg:
+  contents:
+    - x: 410
+      y: 150
+      type: link
+      path: /Applications
+    - x: 130
+      y: 150
+      type: file
+
+# Compression
+compression: normal
+
+# Publishing (if using auto-updater)
+# publish:
+#   provider: github
+#   owner: your-username
+#   repo: clipforge
+
