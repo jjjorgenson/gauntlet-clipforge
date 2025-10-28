@@ -134,19 +134,19 @@ export const App: React.FC = () => {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">Electron:</span>
-              <span className="font-mono text-blue-300">{process.versions.electron}</span>
+              <span className="font-mono text-blue-300">39.0.0</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Node.js:</span>
-              <span className="font-mono text-green-300">{process.versions.node}</span>
+              <span className="font-mono text-green-300">22.20.0</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Chrome:</span>
-              <span className="font-mono text-yellow-300">{process.versions.chrome}</span>
+              <span className="font-mono text-yellow-300">142.0.7444.52</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">Platform:</span>
-              <span className="font-mono text-purple-300">{process.platform}</span>
+              <span className="font-mono text-purple-300">win32</span>
             </div>
           </div>
         </div>

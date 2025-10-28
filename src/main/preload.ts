@@ -11,7 +11,44 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { IpcAPI } from '../shared/contracts/ipc';
-import { IPC_CHANNELS } from '../shared/contracts/ipc-channels';
+
+// Inline IPC channels to avoid module resolution issues in preload context
+const IPC_CHANNELS = {
+  // Media
+  MEDIA_IMPORT: 'media:import',
+  MEDIA_GET_METADATA: 'media:get-metadata',
+  MEDIA_OPEN_FILE_PICKER: 'media:open-file-picker',
+  MEDIA_GENERATE_THUMBNAIL: 'media:generate-thumbnail',
+
+  // Recording
+  RECORDING_GET_SOURCES: 'recording:get-sources',
+  RECORDING_START: 'recording:start',
+  RECORDING_STOP: 'recording:stop',
+  RECORDING_SAVE: 'recording:save',
+  RECORDING_PROGRESS: 'recording:progress', // event
+
+  // Export
+  EXPORT_START: 'export:start',
+  EXPORT_CANCEL: 'export:cancel',
+  EXPORT_PROGRESS: 'export:progress', // event
+  EXPORT_COMPLETE: 'export:complete', // event
+
+  // Project
+  PROJECT_SAVE: 'project:save',
+  PROJECT_LOAD: 'project:load',
+  PROJECT_OPEN_SAVE_DIALOG: 'project:open-save-dialog',
+  PROJECT_OPEN_PROJECT_DIALOG: 'project:open-project-dialog',
+
+  // System
+  SYSTEM_GET_PATH: 'system:get-path',
+  SYSTEM_SHOW_ITEM: 'system:show-item',
+  SYSTEM_OPEN_EXTERNAL: 'system:open-external',
+} as const;
+
+// Debug: Check if contextBridge is available
+console.log('🔍 contextBridge available:', typeof contextBridge);
+console.log('🔍 ipcRenderer available:', typeof ipcRenderer);
+console.log('🔍 IPC_CHANNELS:', IPC_CHANNELS);
 
 // Complete IPC API implementation
 const api: IpcAPI = {
@@ -69,10 +106,13 @@ const api: IpcAPI = {
 };
 
 // Expose API to renderer
-contextBridge.exposeInMainWorld('api', api);
-
-// Log successful preload
-console.log('✅ Preload script executed successfully');
-console.log('📡 Complete IPC API exposed to renderer');
-console.log('🔗 All channels registered:', Object.values(IPC_CHANNELS));
+try {
+  contextBridge.exposeInMainWorld('api', api);
+  console.log('✅ Preload script executed successfully');
+  console.log('📡 Complete IPC API exposed to renderer');
+  console.log('🔗 All channels registered:', Object.values(IPC_CHANNELS));
+  console.log('🔍 API object keys:', Object.keys(api));
+} catch (error) {
+  console.error('❌ Failed to expose API:', error);
+}
 

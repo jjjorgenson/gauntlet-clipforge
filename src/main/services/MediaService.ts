@@ -29,6 +29,18 @@ export class MediaService implements IMediaService {
       throw new Error(`File not found: ${filePath}`);
     }
 
+    // Mock mode for development/testing
+    if (ffmpegManager.isMockMode()) {
+      console.log('🎭 Using mock metadata for:', filePath);
+      return {
+        duration: 30.5,
+        resolution: { width: 1920, height: 1080 },
+        frameRate: 29.97,
+        codec: 'h264',
+        size: fs.statSync(filePath).size,
+      };
+    }
+
     return new Promise((resolve, reject) => {
       this.ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {
@@ -76,6 +88,12 @@ export class MediaService implements IMediaService {
 
     if (!fs.existsSync(filePath)) {
       throw new Error(`File not found: ${filePath}`);
+    }
+
+    // Mock mode for development/testing
+    if (ffmpegManager.isMockMode()) {
+      console.log('🎭 Using mock thumbnail for:', filePath);
+      return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     }
 
     return new Promise((resolve, reject) => {

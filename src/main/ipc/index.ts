@@ -15,6 +15,7 @@ import {
   SystemIPC 
 } from '../../shared/contracts/ipc';
 import { registerMediaHandlers } from './mediaHandlers';
+import { registerRecordHandlers } from './recordHandlers';
 
 /**
  * Register all IPC handlers
@@ -28,62 +29,11 @@ export function registerIpcHandlers(): void {
   // Register Track 2: Media handlers (real implementation)
   registerMediaHandlers();
 
-  // ============================================================================
-  // RECORDING HANDLERS (Mock - Track 3 will implement)
-  // ============================================================================
-  
-  ipcMain.handle(IPC_CHANNELS.RECORDING_GET_SOURCES, async (event, req: RecordingIPC.GetSourcesRequest): Promise<RecordingIPC.GetSourcesResponse> => {
-    console.log('🎥 Recording sources requested:', req.types);
-    
-    // Mock sources - Track 3 will implement real screen/window enumeration
-    const mockSources = [
-      { 
-        id: 'screen-1', 
-        name: 'Main Display', 
-        type: 'screen' as const,
-        thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      },
-      { 
-        id: 'window-1', 
-        name: 'Chrome Browser', 
-        type: 'window' as const,
-        thumbnail: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
-      },
-    ];
-    
-    return { sources: mockSources };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.RECORDING_START, async (event, req: RecordingIPC.StartRecordingRequest): Promise<RecordingIPC.StartRecordingResponse> => {
-    console.log('🔴 Recording start requested:', req);
-    
-    // Mock session - Track 3 will implement real recording
-    const sessionId = `recording-${Date.now()}`;
-    
-    return { sessionId };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.RECORDING_STOP, async (event, req: RecordingIPC.StopRecordingRequest): Promise<RecordingIPC.StopRecordingResponse> => {
-    console.log('⏹️ Recording stop requested:', req.sessionId);
-    
-    // Mock output - Track 3 will implement real recording stop
-    return {
-      outputPath: '/path/to/recording.webm',
-      duration: 120.5,
-    };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.RECORDING_SAVE, async (event, req: RecordingIPC.SaveRecordingRequest): Promise<RecordingIPC.SaveRecordingResponse> => {
-    console.log('💾 Recording save requested:', req.filename);
-    
-    // Mock save - Track 3 will implement real file saving
-    return {
-      outputPath: `/path/to/saved/${req.filename}`,
-    };
-  });
+  // Register Track 3: Recording handlers (real implementation)
+  registerRecordHandlers();
 
   // ============================================================================
-  // EXPORT HANDLERS
+  // EXPORT HANDLERS (Mock - Track 4 will implement)
   // ============================================================================
   
   ipcMain.handle(IPC_CHANNELS.EXPORT_START, async (event, req: ExportIPC.StartExportRequest): Promise<ExportIPC.StartExportResponse> => {
