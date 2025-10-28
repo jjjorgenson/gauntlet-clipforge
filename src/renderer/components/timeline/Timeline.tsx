@@ -9,16 +9,19 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TimeRuler } from './TimeRuler';
+import { TimelineControls } from './TimelineControls';
+import { TrackHeader } from './TrackHeader';
 import { Clip, Track } from '@types';
 
 export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   
   // Drag state
   const [dragState, setDragState] = useState<{
     isDragging: boolean;
-    dragType: 'clip' | 'trim-left' | 'trim-right' | 'playhead' | null;
+    dragType: 'clip' | 'trim-left' | 'trim-right' | 'playhead' | 'pan' | null;
     dragClipId: string | null;
     dragStartX: number;
     dragStartTime: number;
@@ -31,6 +34,9 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     dragStartTime: 0,
     dragOffset: 0
   });
+
+  // Track selection state
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   
   // Timeline store state
   const {
@@ -47,7 +53,10 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     trimClip,
     selectClip,
     clearSelection,
-    deleteSelectedClips
+    deleteSelectedClips,
+    addTrack,
+    removeTrack,
+    updateTrack
   } = useTimelineStore();
 
   // Timeline constants
@@ -55,6 +64,10 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
   const TRACK_HEIGHT = 60;
   const TRACK_MARGIN = 4;
   const TRIM_HANDLE_WIDTH = 8;
+  const MIN_ZOOM = 0.1;
+  const MAX_ZOOM = 10.0;
+  const ZOOM_STEP = 0.1;
+  const TRACK_HEADER_WIDTH = 200;
 
   // Utility functions
   const pixelsPerSecond = PIXELS_PER_SECOND_BASE * zoom;
@@ -66,6 +79,45 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
   const pixelsToTime = useCallback((pixels: number): number => {
     return (pixels + scrollLeft) / pixelsPerSecond;
   }, [pixelsPerSecond, scrollLeft]);
+
+  // Enhanced zoom functions
+  const zoomIn = useCallback(() => {
+    const newZoom = Math.min(MAX_ZOOM, zoom + ZOOM_STEP);
+    if (newZoom !== zoom) {
+      // Maintain center point during zoom
+      const centerX = dimensions.width / 2;
+      const centerTime = pixelsToTime(centerX);
+      const newPixelsPerSecond = PIXELS_PER_SECOND_BASE * newZoom;
+      const newScrollLeft = centerTime * newPixelsPerSecond - centerX;
+      
+      setZoom(newZoom);
+      setScrollLeft(Math.max(0, newScrollLeft));
+    }
+  }, [zoom, dimensions.width, pixelsToTime, setZoom, setScrollLeft]);
+
+  const zoomOut = useCallback(() => {
+    const newZoom = Math.max(MIN_ZOOM, zoom - ZOOM_STEP);
+    if (newZoom !== zoom) {
+      // Maintain center point during zoom
+      const centerX = dimensions.width / 2;
+      const centerTime = pixelsToTime(centerX);
+      const newPixelsPerSecond = PIXELS_PER_SECOND_BASE * newZoom;
+      const newScrollLeft = centerTime * newPixelsPerSecond - centerX;
+      
+      setZoom(newZoom);
+      setScrollLeft(Math.max(0, newScrollLeft));
+    }
+  }, [zoom, dimensions.width, pixelsToTime, setZoom, setScrollLeft]);
+
+  const fitToWindow = useCallback(() => {
+    if (duration > 0 && dimensions.width > 0) {
+      const targetZoom = (dimensions.width - TRACK_HEADER_WIDTH) / (duration * PIXELS_PER_SECOND_BASE);
+      const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
+      
+      setZoom(clampedZoom);
+      setScrollLeft(0);
+    }
+  }, [duration, dimensions.width, setZoom, setScrollLeft]);
 
   // Find clip at position
   const findClipAtPosition = useCallback((x: number, y: number): { clip: Clip; track: Track; hitRegion: 'body' | 'trim-left' | 'trim-right' } | null => {
@@ -152,12 +204,16 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     
     if (e.ctrlKey || e.metaKey) {
       // Zoom with Ctrl/Cmd + wheel
-      const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(zoom + zoomDelta);
+      if (e.deltaY > 0) {
+        zoomOut();
+      } else {
+        zoomIn();
+      }
     } else {
       // Horizontal scroll with wheel
       const scrollDelta = e.deltaY;
-      setScrollLeft(scrollLeft + scrollDelta);
+      const maxScroll = Math.max(0, duration * pixelsPerSecond - (dimensions.width - TRACK_HEADER_WIDTH));
+      setScrollLeft(Math.max(0, Math.min(maxScroll, scrollLeft + scrollDelta)));
     }
   };
 
@@ -212,11 +268,31 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
       return;
     }
 
+    // Check if clicking on track header area (for panning)
+    if (x < TRACK_HEADER_WIDTH) {
+      // Clicked on track header area
+      return;
+    }
+
+    // Start panning if middle mouse button or right mouse button
+    if (e.button === 1 || e.button === 2 || (e.button === 0 && e.shiftKey)) {
+      e.preventDefault();
+      setDragState({
+        isDragging: true,
+        dragType: 'pan',
+        dragClipId: null,
+        dragStartX: x,
+        dragStartTime: 0,
+        dragOffset: scrollLeft
+      });
+      return;
+    }
+
     // Clicked on empty space
     if (!e.ctrlKey && !e.metaKey) {
       clearSelection();
     }
-  }, [currentTime, pixelsToTime, timeToPixels, findClipAtPosition, selectClip, clearSelection]);
+  }, [currentTime, pixelsToTime, timeToPixels, findClipAtPosition, selectClip, clearSelection, scrollLeft]);
 
   const handleMouseUp = useCallback(() => {
     setDragState({
@@ -238,6 +314,70 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     }
   }, [selectedClipIds, deleteSelectedClips]);
 
+  // Drop handling
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Only handle drops in the timeline area (not track headers)
+    if (x < TRACK_HEADER_WIDTH) return;
+
+    // Get clip data from drag
+    const clipData = e.dataTransfer.getData('application/clipforge-clip');
+    if (!clipData) return;
+
+    try {
+      const clipInfo = JSON.parse(clipData);
+      
+      // Calculate drop position
+      const dropTime = pixelsToTime(x - TRACK_HEADER_WIDTH);
+      const trackIndex = Math.floor(y / (TRACK_HEIGHT + TRACK_MARGIN));
+      const targetTrack = tracks[trackIndex];
+      
+      if (targetTrack) {
+        // Create new clip at drop position
+        const newClip: Clip = {
+          id: `clip-${Date.now()}`,
+          trackId: targetTrack.id,
+          sourceFile: clipInfo.sourceFile,
+          startTime: Math.max(0, dropTime),
+          endTime: Math.max(0, dropTime) + (clipInfo.duration || 5), // Default 5 seconds
+          trimIn: 0,
+          trimOut: clipInfo.duration || 5,
+          metadata: {
+            duration: clipInfo.duration || 5,
+            resolution: {
+              width: clipInfo.width || 1920,
+              height: clipInfo.height || 1080
+            },
+            frameRate: clipInfo.fps || 30,
+            codec: clipInfo.codec || 'h264',
+            size: clipInfo.size || 0
+          }
+        };
+        
+        // Add clip to track using updateTrack
+        const updatedTrack = {
+          ...targetTrack,
+          clips: [...targetTrack.clips, newClip].sort((a, b) => a.startTime - b.startTime)
+        };
+        updateTrack(targetTrack.id, updatedTrack);
+      }
+    } catch (error) {
+      console.error('Failed to parse clip data:', error);
+    }
+  }, [pixelsToTime, tracks, updateTrack]);
+
   // Global mouse events for drag
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
@@ -253,6 +393,12 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
       if (dragState.dragType === 'playhead') {
         const clampedTime = Math.max(0, Math.min(time, duration));
         seek(clampedTime);
+      } else if (dragState.dragType === 'pan') {
+        // Handle panning
+        const deltaX = x - dragState.dragStartX;
+        const newScrollLeft = dragState.dragOffset - deltaX;
+        const maxScroll = Math.max(0, duration * pixelsPerSecond - (dimensions.width - TRACK_HEADER_WIDTH));
+        setScrollLeft(Math.max(0, Math.min(maxScroll, newScrollLeft)));
       } else if (dragState.dragClipId && dragState.dragType) {
         const clip = tracks.flatMap(t => t.clips).find(c => c.id === dragState.dragClipId);
         if (!clip) return;
@@ -321,6 +467,8 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
       onKeyDown={handleKeyDown}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       tabIndex={0}
       style={{
         width: '100%',
@@ -329,72 +477,135 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
         overflow: 'hidden',
         backgroundColor: '#1a1a1a',
         cursor: dragState.isDragging ? 'grabbing' : 'default',
-        outline: 'none'
+        outline: 'none',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
-      {/* Time Ruler */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '40px',
-          backgroundColor: '#2a2a2a',
-          borderBottom: '1px solid #444',
-          zIndex: 10
-        }}
-      >
-        <TimeRuler
-          duration={duration}
-          zoom={zoom}
-          scrollLeft={scrollLeft}
-          currentTime={currentTime}
-          onSeek={seek}
-        />
-      </div>
+      {/* Timeline Controls */}
+      <TimelineControls
+        zoom={zoom}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onFitToWindow={fitToWindow}
+        onAddTrack={() => addTrack(`Track ${tracks.length + 1}`)}
+        onDeleteTrack={removeTrack}
+        trackCount={tracks.length}
+        canDeleteTrack={tracks.length > 1}
+      />
 
-      {/* Timeline Canvas */}
+      {/* Main Timeline Area */}
       <div
         style={{
-          position: 'absolute',
-          top: '40px',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: '#1a1a1a'
+          flex: 1,
+          display: 'flex',
+          overflow: 'hidden'
         }}
       >
-        <TimelineCanvas
-          tracks={tracks}
-          currentTime={currentTime}
-          zoom={zoom}
-          scrollLeft={scrollLeft}
-          selectedClipIds={selectedClipIds}
-          dragState={dragState}
-          onClipClick={(clipId, multiSelect) => {
-            selectClip(clipId, multiSelect);
+        {/* Track Headers */}
+        <div
+          style={{
+            width: TRACK_HEADER_WIDTH,
+            backgroundColor: '#2a2a2a',
+            borderRight: '1px solid #444',
+            overflowY: 'auto',
+            overflowX: 'hidden'
           }}
-          onClipDragStart={(clipId) => {
-            // Handled by mouse events
+        >
+          {tracks.map((track, index) => (
+            <TrackHeader
+              key={track.id}
+              track={track}
+              trackIndex={index}
+              height={TRACK_HEIGHT + TRACK_MARGIN}
+              onTrackClick={setSelectedTrackId}
+              onTrackRename={(trackId, newName) => updateTrack(trackId, { name: newName })}
+              onTrackDelete={removeTrack}
+              isSelected={selectedTrackId === track.id}
+            />
+          ))}
+        </div>
+
+        {/* Timeline Content */}
+        <div
+          ref={timelineRef}
+          style={{
+            flex: 1,
+            position: 'relative',
+            overflow: 'hidden',
+            backgroundColor: '#1a1a1a'
           }}
-          onClipDragEnd={(clipId, trackId, position) => {
-            // Handled by mouse events
-          }}
-          onTrimHandleDrag={(clipId, handle, delta) => {
-            // Handled by mouse events
-          }}
-          onPlayheadDrag={(time) => {
-            seek(time);
-          }}
-        />
+        >
+          {/* Time Ruler */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '40px',
+              backgroundColor: '#2a2a2a',
+              borderBottom: '1px solid #444',
+              zIndex: 10
+            }}
+          >
+            <TimeRuler
+              duration={duration}
+              zoom={zoom}
+              scrollLeft={scrollLeft}
+              currentTime={currentTime}
+              onSeek={seek}
+            />
+          </div>
+
+          {/* Timeline Canvas */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '40px',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: '#1a1a1a'
+            }}
+          >
+            <TimelineCanvas
+              tracks={tracks}
+              currentTime={currentTime}
+              zoom={zoom}
+              scrollLeft={scrollLeft}
+              selectedClipIds={selectedClipIds}
+              dragState={{
+                ...dragState,
+                dragType: dragState.dragType === 'pan' ? null : dragState.dragType
+              }}
+              onClipClick={(clipId, multiSelect) => {
+                selectClip(clipId, multiSelect);
+              }}
+              onClipDragStart={(clipId) => {
+                // Handled by mouse events
+              }}
+              onClipDragEnd={(clipId, trackId, position) => {
+                // Handled by mouse events
+              }}
+              onTrimHandleDrag={(clipId, handle, delta) => {
+                // Handled by mouse events
+              }}
+              onPlayheadDrag={(time) => {
+                seek(time);
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Debug Info (remove in production) */}
       <div
         style={{
           position: 'absolute',
-          top: '10px',
+          top: '50px',
           right: '10px',
           color: '#888',
           fontSize: '12px',

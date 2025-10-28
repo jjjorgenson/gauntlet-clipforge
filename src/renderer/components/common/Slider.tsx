@@ -17,6 +17,8 @@ export interface SliderProps {
   disabled?: boolean;
   className?: string;
   'aria-label'?: string;
+  onStart?: () => void;
+  onEnd?: (value: number) => void;
 }
 
 export const Slider: React.FC<SliderProps> = ({
@@ -28,6 +30,8 @@ export const Slider: React.FC<SliderProps> = ({
   disabled = false,
   className = '',
   'aria-label': ariaLabel,
+  onStart,
+  onEnd,
   ...props
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -62,6 +66,9 @@ export const Slider: React.FC<SliderProps> = ({
     setIsDragging(true);
     setShowTooltip(true);
     
+    // Call onStart if provided
+    onStart?.();
+    
     const handleMouseMove = (e: MouseEvent) => {
       const newValue = getValueFromPosition(e.clientX);
       onChange(newValue);
@@ -70,6 +77,10 @@ export const Slider: React.FC<SliderProps> = ({
     const handleMouseUp = () => {
       setIsDragging(false);
       setShowTooltip(false);
+      
+      // Call onEnd with final value if provided
+      onEnd?.(clampedValue);
+      
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
@@ -83,7 +94,14 @@ export const Slider: React.FC<SliderProps> = ({
     if (disabled || isDragging) return;
     
     const newValue = getValueFromPosition(event.clientX);
+    
+    // Call onStart if provided
+    onStart?.();
+    
     onChange(newValue);
+    
+    // Call onEnd with new value if provided
+    onEnd?.(newValue);
   };
 
   // Handle keyboard navigation
@@ -115,7 +133,13 @@ export const Slider: React.FC<SliderProps> = ({
         return;
     }
     
+    // Call onStart if provided
+    onStart?.();
+    
     onChange(newValue);
+    
+    // Call onEnd with new value if provided
+    onEnd?.(newValue);
   };
 
   // Handle focus/blur for tooltip
