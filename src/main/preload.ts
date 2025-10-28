@@ -6,24 +6,66 @@
  * 
  * Security: This is the ONLY bridge between main and renderer processes.
  * 
- * NOTE: Full IPC API will be implemented in Track 1.
- * For now, we just expose version info to verify the preload script works.
+ * Track 1 Implementation: Complete IPC API infrastructure
  */
 
-import { contextBridge } from 'electron';
+import { contextBridge, ipcRenderer } from 'electron';
+import { IpcAPI } from '../shared/contracts/ipc';
+import { IPC_CHANNELS } from '../shared/contracts/ipc-channels';
 
-// Temporary minimal API for initial setup
-// Track 1 will implement the full IpcAPI from @contracts/ipc
-const api = {
-  // Version information (for testing preload works)
-  _versions: {
-    electron: process.versions.electron,
-    node: process.versions.node,
-    chrome: process.versions.chrome,
+// Complete IPC API implementation
+const api: IpcAPI = {
+  // Media operations
+  media: {
+    import: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_IMPORT, req),
+    getMetadata: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_GET_METADATA, req),
+    openFilePicker: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_OPEN_FILE_PICKER, req),
+    generateThumbnail: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_GENERATE_THUMBNAIL, req),
   },
-  
-  // Platform information
-  _platform: process.platform,
+
+  // Recording operations
+  recording: {
+    getSources: (req) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_GET_SOURCES, req),
+    start: (req) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_START, req),
+    stop: (req) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_STOP, req),
+    saveRecording: (req) => ipcRenderer.invoke(IPC_CHANNELS.RECORDING_SAVE, req),
+    onProgress: (callback) => {
+      const listener = (_event: any, data: any) => callback(data);
+      ipcRenderer.on(IPC_CHANNELS.RECORDING_PROGRESS, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.RECORDING_PROGRESS, listener);
+    },
+  },
+
+  // Export operations
+  export: {
+    start: (req) => ipcRenderer.invoke(IPC_CHANNELS.EXPORT_START, req),
+    cancel: (req) => ipcRenderer.invoke(IPC_CHANNELS.EXPORT_CANCEL, req),
+    onProgress: (callback) => {
+      const listener = (_event: any, data: any) => callback(data);
+      ipcRenderer.on(IPC_CHANNELS.EXPORT_PROGRESS, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.EXPORT_PROGRESS, listener);
+    },
+    onComplete: (callback) => {
+      const listener = (_event: any, data: any) => callback(data);
+      ipcRenderer.on(IPC_CHANNELS.EXPORT_COMPLETE, listener);
+      return () => ipcRenderer.removeListener(IPC_CHANNELS.EXPORT_COMPLETE, listener);
+    },
+  },
+
+  // Project operations
+  project: {
+    save: (req) => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SAVE, req),
+    load: (req) => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LOAD, req),
+    openSaveDialog: (req) => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_OPEN_SAVE_DIALOG, req),
+    openProjectDialog: (req) => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_OPEN_PROJECT_DIALOG, req),
+  },
+
+  // System operations
+  system: {
+    getPath: (req) => ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_GET_PATH, req),
+    showItem: (req) => ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_SHOW_ITEM, req),
+    openExternal: (req) => ipcRenderer.invoke(IPC_CHANNELS.SYSTEM_OPEN_EXTERNAL, req),
+  },
 };
 
 // Expose API to renderer
@@ -31,8 +73,6 @@ contextBridge.exposeInMainWorld('api', api);
 
 // Log successful preload
 console.log('✅ Preload script executed successfully');
-console.log('📦 Temporary API exposed (Track 1 will add full IPC API)');
-
-// Note: The full Window.api type is declared in @contracts/ipc
-// Track 1 will implement the complete IpcAPI interface
+console.log('📡 Complete IPC API exposed to renderer');
+console.log('🔗 All channels registered:', Object.values(IPC_CHANNELS));
 
