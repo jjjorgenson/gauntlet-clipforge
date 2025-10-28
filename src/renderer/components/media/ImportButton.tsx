@@ -86,7 +86,7 @@ export const ImportButton: React.FC<ImportButtonProps> = ({
     setImportError(null);
 
     try {
-      const filePaths = videoFiles.map(file => file.path);
+      const filePaths = videoFiles.map(file => (file as any).path || file.name);
       
       const importResult = await window.api.media.import({
         filePaths

@@ -190,8 +190,10 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-8 text-sm text-gray-500">
-          <p>🎯 Track 8 Complete: Media Library UI ready for integration</p>
+            <div className="mt-8 text-sm text-gray-500">
+              <p>🎯 Track 8 Complete: Media Library UI ready for integration</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

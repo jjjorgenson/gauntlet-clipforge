@@ -44,7 +44,7 @@ export const MediaLibrary: React.FC<MediaLibraryComponentProps.MediaLibrary> = (
             });
             
             // Update the item with thumbnail
-            useMediaStore.getState().updateItemThumbnail(item.id, thumbnail.thumbnail);
+            useMediaStore.getState().updateThumbnail(item.id, thumbnail.thumbnail);
           } catch (error) {
             console.warn(`Failed to load thumbnail for ${item.clip.sourceFile}:`, error);
           }
