@@ -10,7 +10,7 @@ import { useStore } from '../store';
 
 export const usePlayback = () => {
   const { timeline } = useStore();
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
 
   // Playback state
