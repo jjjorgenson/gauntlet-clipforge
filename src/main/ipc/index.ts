@@ -16,6 +16,7 @@ import {
 } from '../../shared/contracts/ipc';
 import { registerMediaHandlers } from './mediaHandlers';
 import { registerRecordHandlers } from './recordHandlers';
+import { registerExportHandlers } from './exportHandlers';
 
 /**
  * Register all IPC handlers
@@ -26,85 +27,18 @@ import { registerRecordHandlers } from './recordHandlers';
 export function registerIpcHandlers(): void {
   console.log('📡 Registering IPC handlers...');
 
-  // Register Track 2: Media handlers (real implementation)
-  registerMediaHandlers();
+        // Register Track 2: Media handlers (real implementation)
+        registerMediaHandlers();
 
-  // Register Track 3: Recording handlers (real implementation)
-  registerRecordHandlers();
+        // Register Track 3: Recording handlers (real implementation)
+        registerRecordHandlers();
 
-  // ============================================================================
-  // EXPORT HANDLERS (Mock - Track 4 will implement)
-  // ============================================================================
-  
-  ipcMain.handle(IPC_CHANNELS.EXPORT_START, async (event, req: ExportIPC.StartExportRequest): Promise<ExportIPC.StartExportResponse> => {
-    console.log('📤 Export start requested:', req.config);
-    
-    // Mock export - Track 4 will implement real FFmpeg export
-    const exportId = `export-${Date.now()}`;
-    
-    return { exportId };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.EXPORT_CANCEL, async (event, req: ExportIPC.CancelExportRequest): Promise<ExportIPC.CancelExportResponse> => {
-    console.log('❌ Export cancel requested:', req.exportId);
-    
-    // Mock cancel - Track 4 will implement real cancellation
-    return { success: true };
-  });
+        // Register Track 4: Export handlers (real implementation)
+        registerExportHandlers();
 
   // ============================================================================
-  // PROJECT HANDLERS
+  // PROJECT HANDLERS (Mock - Track 5 will implement)
   // ============================================================================
-  
-  ipcMain.handle(IPC_CHANNELS.PROJECT_SAVE, async (event, req: ProjectIPC.SaveProjectRequest): Promise<ProjectIPC.SaveProjectResponse> => {
-    console.log('💾 Project save requested:', req.filePath || 'new project');
-    
-    // Mock save - Track 5 will implement real project serialization
-    const filePath = req.filePath || '/path/to/project.cfp';
-    
-    return { filePath };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.PROJECT_LOAD, async (event, req: ProjectIPC.LoadProjectRequest): Promise<ProjectIPC.LoadProjectResponse> => {
-    console.log('📂 Project load requested:', req.filePath);
-    
-    // Mock project - Track 5 will implement real project loading
-    const mockProject = {
-      id: 'project-1',
-      name: 'Sample Project',
-      version: '1.0.0',
-      settings: {
-        resolution: { width: 1920, height: 1080 },
-        fps: 30,
-        audioSampleRate: 48000,
-      },
-      metadata: {
-        created: new Date(),
-        modified: new Date(),
-        author: 'ClipForge User',
-      },
-      timeline: {
-        tracks: [],
-        duration: 0,
-      },
-    };
-    
-    return { project: mockProject };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.PROJECT_OPEN_SAVE_DIALOG, async (event, req: ProjectIPC.OpenSaveDialogRequest): Promise<ProjectIPC.OpenSaveDialogResponse> => {
-    console.log('💾 Save dialog requested:', req);
-    
-    // Mock dialog - Track 5 will implement real dialog
-    return { filePath: '/path/to/save/project.cfp' };
-  });
-
-  ipcMain.handle(IPC_CHANNELS.PROJECT_OPEN_PROJECT_DIALOG, async (event, req: ProjectIPC.OpenProjectDialogRequest): Promise<ProjectIPC.OpenProjectDialogResponse> => {
-    console.log('📂 Open dialog requested');
-    
-    // Mock dialog - Track 5 will implement real dialog
-    return { filePath: '/path/to/existing/project.cfp' };
-  });
 
   // ============================================================================
   // SYSTEM HANDLERS
