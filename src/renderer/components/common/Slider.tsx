@@ -19,6 +19,7 @@ export interface SliderProps {
   'aria-label'?: string;
   onStart?: () => void;
   onEnd?: (value: number) => void;
+  showTooltip?: boolean;
 }
 
 export const Slider: React.FC<SliderProps> = ({
@@ -32,6 +33,7 @@ export const Slider: React.FC<SliderProps> = ({
   'aria-label': ariaLabel,
   onStart,
   onEnd,
+  showTooltip: showTooltipProp = true,
   ...restProps
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -187,7 +189,7 @@ export const Slider: React.FC<SliderProps> = ({
         />
         
         {/* Tooltip */}
-        {showTooltip && (
+        {showTooltipProp && showTooltip && (
           <div
             className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-sm px-2 py-1 rounded shadow-lg pointer-events-none"
             style={{ left: `${percentage}%` }}

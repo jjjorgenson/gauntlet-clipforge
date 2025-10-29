@@ -130,8 +130,8 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
 
   return (
     <div className={`video-preview flex flex-col h-full ${className}`}>
-      {/* Video Player Container with proper centering */}
-      <div className="flex-1 flex items-center justify-center p-4">
+      {/* Video Player Container with proper centering - min-h-0 allows it to shrink */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
         <div className="w-full max-w-full" style={{ aspectRatio: '16/9' }}>
           <div className="relative w-full h-full bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-lg overflow-hidden shadow-2xl">
             {currentClip ? (
@@ -168,21 +168,23 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
         </div>
       </div>
 
-      {/* Playback Controls */}
-      <PlaybackControls
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={totalDuration}
-        volume={volume}
-        onPlayPause={() => isPlaying ? pause() : play()}
-        onSeek={handleSeek}
-        onVolumeChange={handleVolumeChange}
-        onFullscreen={handleFullscreen}
-      />
+      {/* Playback Controls - always visible at bottom */}
+      <div className="flex-shrink-0">
+        <PlaybackControls
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={totalDuration}
+          volume={volume}
+          onPlayPause={() => isPlaying ? pause() : play()}
+          onSeek={handleSeek}
+          onVolumeChange={handleVolumeChange}
+          onFullscreen={handleFullscreen}
+        />
+      </div>
 
       {/* Current Clip Info */}
       {currentClip && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4 flex-shrink-0">
           <div className="p-3 bg-editor-panel border border-editor-border rounded-lg">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">

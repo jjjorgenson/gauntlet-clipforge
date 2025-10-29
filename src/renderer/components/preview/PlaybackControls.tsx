@@ -131,16 +131,19 @@ export const PlaybackControls: React.FC<VideoPreviewComponentProps.PlaybackContr
             size="sm"
           >
             {volume === 0 ? (
+              // Muted icon (speaker with X)
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
             ) : volume < 0.5 ? (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              // Low volume icon (speaker with 1 wave) - grey
+              <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 3.5a1 1 0 00-1.707-.707L4.586 6.5H2a1 1 0 00-1 1v5a1 1 0 001 1h2.586l3.707 3.707A1 1 0 0010 16.5v-13zM13.536 8.464a1 1 0 011.414 0 3 3 0 010 4.243 1 1 0 01-1.414-1.414 1 1 0 000-1.414 1 1 0 010-1.415z" />
               </svg>
             ) : (
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              // High volume icon (speaker with 2 waves) - grey
+              <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 3.5a1 1 0 00-1.707-.707L4.586 6.5H2a1 1 0 00-1 1v5a1 1 0 001 1h2.586l3.707 3.707A1 1 0 0010 16.5v-13zM15.95 5.879a1 1 0 011.414 0A7 7 0 0118 10a7 7 0 01-.636 4.121 1 1 0 11-1.828-.758A5 5 0 0016 10a5 5 0 00-.464-3.363 1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.414 0A3 3 0 0115 10a3 3 0 01-.464 1.414 1 1 0 11-1.414-1.414.983.983 0 00.242-.707.983.983 0 00-.242-.707 1 1 0 010-1.414z" />
               </svg>
             )}
           </Button>
@@ -163,6 +166,7 @@ export const PlaybackControls: React.FC<VideoPreviewComponentProps.PlaybackContr
                   step={0.01}
                   onChange={handleVolumeChange}
                   className="w-20"
+                  showTooltip={false}
                 />
                 <span className="text-xs text-gray-400 w-8 text-center">
                   {Math.round(volume * 100)}

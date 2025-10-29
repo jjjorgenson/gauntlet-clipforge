@@ -40,12 +40,12 @@ export const App: React.FC = () => {
 
         {/* Center Panel - 9 columns (Video + Timeline) - Full width without right panel */}
         <div className="col-span-9 flex flex-col">
-          {/* Video Preview - takes 60% of vertical space */}
-          <div className="h-3/5 border-b border-editor-border">
+          {/* Video Preview - takes most space, minimum to keep controls visible */}
+          <div className="flex-1 min-h-[400px] border-b border-editor-border flex flex-col">
             <VideoPreview />
           </div>
-          {/* Timeline - takes 40% of vertical space */}
-          <div className="h-2/5 bg-gray-900">
+          {/* Timeline - fixed compact height, tracks scroll vertically if needed */}
+          <div className="h-64 bg-gray-900 flex-shrink-0">
             <Timeline className="h-full" />
           </div>
         </div>
