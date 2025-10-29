@@ -37,6 +37,7 @@ interface TimelineClipProps {
   zoom: number;
   onSelect: (clipId: string) => void;
   onDragStart: (clipId: string, dragType: 'clip' | 'trim-left' | 'trim-right') => void;
+  onTrim?: (clipId: string) => void;
 }
 
 export const TimelineClip: React.FC<TimelineClipProps> = ({
@@ -49,7 +50,8 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
   width,
   zoom,
   onSelect,
-  onDragStart
+  onDragStart,
+  onTrim
 }) => {
   // Calculate clip dimensions
   const clipWidth = Math.max(width, 20); // Minimum width for visibility
@@ -76,6 +78,16 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
     onDragStart(clip.id, hitDragType);
   };
 
+  // Handle right-click context menu
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (onTrim) {
+      onTrim(clip.id);
+    }
+  };
+
   // Format time duration
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -89,9 +101,25 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
     return filename.length > 20 ? filename.substring(0, 17) + '...' : filename;
   };
 
+  // Get aspect ratio display
+  const getAspectRatioDisplay = (): string => {
+    const { width, height } = clip.metadata.resolution;
+    const aspectRatio = width / height;
+    
+    // Common aspect ratios
+    if (Math.abs(aspectRatio - 16/9) < 0.01) return '16:9';
+    if (Math.abs(aspectRatio - 4/3) < 0.01) return '4:3';
+    if (Math.abs(aspectRatio - 21/9) < 0.01) return '21:9';
+    if (Math.abs(aspectRatio - 1) < 0.01) return '1:1';
+    if (Math.abs(aspectRatio - 9/16) < 0.01) return '9:16'; // Vertical
+    
+    return `${width}×${height}`;
+  };
+
   return (
     <div
       onMouseDown={handleMouseDown}
+      onContextMenu={handleContextMenu}
       style={{
         position: 'absolute',
         left: x,
@@ -174,41 +202,100 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
         style={{
           flex: 1,
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          flexDirection: 'row',
+          gap: '4px',
           marginLeft: showTrimHandles ? TRIM_HANDLE_WIDTH : 0,
           marginRight: showTrimHandles ? TRIM_HANDLE_WIDTH : 0,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          alignItems: 'center'
         }}
       >
-        {/* Clip name */}
+        {/* Thumbnail preview (if clip is wide enough) */}
+        {clipWidth > 80 && (
+          <div
+            style={{
+              width: '44px',
+              height: '44px',
+              backgroundColor: '#1a1a1a',
+              borderRadius: '3px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                color: '#666',
+                fontSize: '20px'
+              }}
+            >
+              🎬
+            </div>
+          </div>
+        )}
+        
+        {/* Text content */}
         <div
           style={{
-            color: COLORS.text,
-            fontSize: '11px',
-            fontWeight: '500',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            lineHeight: '1.2'
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            minWidth: 0,
+            height: '100%',
+            paddingTop: '2px',
+            paddingBottom: '2px'
           }}
         >
-          {getClipName()}
-        </div>
-
-        {/* Duration */}
-        {clipWidth > 60 && (
+          {/* Clip name */}
           <div
             style={{
               color: COLORS.text,
-              fontSize: '10px',
-              opacity: 0.8,
-              alignSelf: 'flex-end'
+              fontSize: '11px',
+              fontWeight: '500',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              lineHeight: '1.2'
             }}
           >
-            {formatDuration(clip.endTime - clip.startTime)}
+            {getClipName()}
           </div>
-        )}
+
+          {/* Aspect ratio badge */}
+          {clipWidth > 100 && (
+            <div
+              style={{
+                fontSize: '9px',
+                opacity: 0.7,
+                color: COLORS.text,
+                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                alignSelf: 'flex-start',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {getAspectRatioDisplay()}
+            </div>
+          )}
+
+          {/* Duration */}
+          {clipWidth > 60 && (
+            <div
+              style={{
+                color: COLORS.text,
+                fontSize: '10px',
+                opacity: 0.8,
+                alignSelf: 'flex-end'
+              }}
+            >
+              {formatDuration(clip.endTime - clip.startTime)}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Drag indicator */}

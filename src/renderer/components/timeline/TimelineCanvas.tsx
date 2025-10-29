@@ -42,6 +42,7 @@ export const TimelineCanvas: React.FC<{
   onClipDragEnd: (clipId: string, trackId: string, position: number) => void;
   onTrimHandleDrag: (clipId: string, handle: 'start' | 'end', delta: number) => void;
   onPlayheadDrag: (time: number) => void;
+  onTrim?: (clipId: string) => void;
 }> = ({
   tracks,
   currentTime,
@@ -53,7 +54,8 @@ export const TimelineCanvas: React.FC<{
   onClipDragStart,
   onClipDragEnd,
   onTrimHandleDrag,
-  onPlayheadDrag
+  onPlayheadDrag,
+  onTrim
 }) => {
   // Calculate pixels per second based on zoom
   const pixelsPerSecond = PIXELS_PER_SECOND_BASE * zoom;
@@ -122,6 +124,7 @@ export const TimelineCanvas: React.FC<{
                       onTrimHandleDrag(clipId, 'end', 0);
                     }
                   }}
+                  onTrim={onTrim}
                 />
               );
             })}

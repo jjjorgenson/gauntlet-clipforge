@@ -169,7 +169,11 @@ export class FFmpegManager implements IFFmpegManager {
     
     if (isDev) {
       // Development: binaries in project resources/bin/
-      basePath = path.join(__dirname, '../../../resources/bin');
+      // __dirname in dev is: dist-electron/src/main
+      // Go up to project root, then into resources/bin
+      basePath = path.join(__dirname, '../../../../resources/bin');
+      console.log('🔍 Dev mode - Looking for FFmpeg at:', basePath);
+      console.log('🔍 __dirname is:', __dirname);
     } else {
       // Production: binaries in app resources/bin/
       basePath = path.join(process.resourcesPath, 'bin');
@@ -177,9 +181,15 @@ export class FFmpegManager implements IFFmpegManager {
 
     const extension = platform === 'win32' ? '.exe' : '';
     
+    const ffmpegPath = path.join(basePath, `ffmpeg${extension}`);
+    const ffprobePath = path.join(basePath, `ffprobe${extension}`);
+    
+    console.log('🔍 Checking FFmpeg at:', ffmpegPath);
+    console.log('🔍 Checking FFprobe at:', ffprobePath);
+    
     return {
-      ffmpeg: path.join(basePath, `ffmpeg${extension}`),
-      ffprobe: path.join(basePath, `ffprobe${extension}`)
+      ffmpeg: ffmpegPath,
+      ffprobe: ffprobePath
     };
   }
 

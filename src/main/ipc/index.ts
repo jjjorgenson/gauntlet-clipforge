@@ -17,6 +17,7 @@ import {
 import { registerMediaHandlers } from './mediaHandlers';
 import { registerRecordHandlers } from './recordHandlers';
 import { registerExportHandlers } from './exportHandlers';
+import { registerProjectHandlers } from './projectHandlers';
 
 /**
  * Register all IPC handlers
@@ -37,8 +38,9 @@ export function registerIpcHandlers(): void {
         registerExportHandlers();
 
   // ============================================================================
-  // PROJECT HANDLERS (Mock - Track 5 will implement)
+  // PROJECT HANDLERS
   // ============================================================================
+  registerProjectHandlers();
 
   // ============================================================================
   // SYSTEM HANDLERS

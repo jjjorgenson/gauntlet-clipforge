@@ -6,27 +6,19 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useStore } from '../store';
+import { useTimelineStore } from '../store/timelineStore';
 
 export const usePlayback = () => {
-  const { timeline } = useStore();
+  // Direct subscription to timeline store for reactive updates
+  const isPlaying = useTimelineStore((state) => state.isPlaying);
+  const currentTime = useTimelineStore((state) => state.currentTime);
+  const duration = useTimelineStore((state) => state.duration);
+  const play = useTimelineStore((state) => state.play);
+  const pause = useTimelineStore((state) => state.pause);
+  const seek = useTimelineStore((state) => state.seek);
+  
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
-
-  // Playback state
-  const isPlaying = timeline.isPlaying;
-  const currentTime = timeline.currentTime;
-  const duration = timeline.duration;
-
-  // Play function
-  const play = useCallback(() => {
-    timeline.play();
-  }, [timeline]);
-
-  // Pause function
-  const pause = useCallback(() => {
-    timeline.pause();
-  }, [timeline]);
 
   // Toggle play/pause
   const togglePlayPause = useCallback(() => {
@@ -37,82 +29,54 @@ export const usePlayback = () => {
     }
   }, [isPlaying, play, pause]);
 
-  // Seek to specific time
-  const seek = useCallback((time: number) => {
-    timeline.seek(time);
-  }, [timeline]);
-
   // Seek to beginning
   const seekToStart = useCallback(() => {
-    timeline.seek(0);
-  }, [timeline]);
+    seek(0);
+  }, [seek]);
 
   // Seek to end
   const seekToEnd = useCallback(() => {
-    timeline.seek(duration);
-  }, [timeline]);
+    seek(duration);
+  }, [seek, duration]);
 
   // Seek forward by amount
   const seekForward = useCallback((amount: number = 5) => {
     const newTime = Math.min(duration, currentTime + amount);
-    timeline.seek(newTime);
-  }, [timeline, currentTime, duration]);
+    seek(newTime);
+  }, [seek, currentTime, duration]);
 
   // Seek backward by amount
   const seekBackward = useCallback((amount: number = 5) => {
     const newTime = Math.max(0, currentTime - amount);
-    timeline.seek(newTime);
-  }, [timeline, currentTime]);
+    seek(newTime);
+  }, [seek, currentTime]);
 
   // Frame-by-frame forward
   const frameForward = useCallback(() => {
     const frameTime = 1 / 30; // Assuming 30fps
     const newTime = Math.min(duration, currentTime + frameTime);
-    timeline.seek(newTime);
-  }, [timeline, currentTime, duration]);
+    seek(newTime);
+  }, [seek, currentTime, duration]);
 
   // Frame-by-frame backward
   const frameBackward = useCallback(() => {
     const frameTime = 1 / 30; // Assuming 30fps
     const newTime = Math.max(0, currentTime - frameTime);
-    timeline.seek(newTime);
-  }, [timeline, currentTime]);
+    seek(newTime);
+  }, [seek, currentTime]);
 
-  // Playback loop effect
+  // Playback loop effect - DISABLED
+  // NOTE: This RAF loop was driving timeline time forward manually,
+  // but it conflicts with the video element's natural playback.
+  // The video element is now the master clock via VideoPreview.handleTimeUpdate()
   useEffect(() => {
-    if (isPlaying) {
-      const updatePlayback = (timestamp: number) => {
-        if (lastTimeRef.current === 0) {
-          lastTimeRef.current = timestamp;
-        }
-        
-        const deltaTime = (timestamp - lastTimeRef.current) / 1000; // Convert to seconds
-        lastTimeRef.current = timestamp;
-        
-        const newTime = Math.min(duration, currentTime + deltaTime);
-        
-        if (newTime >= duration) {
-          // Reached end, pause playback
-          timeline.pause();
-          timeline.seek(duration);
-        } else {
-          timeline.seek(newTime);
-        }
-        
-        animationFrameRef.current = requestAnimationFrame(updatePlayback);
-      };
-      
-      animationFrameRef.current = requestAnimationFrame(updatePlayback);
-    } else {
-      lastTimeRef.current = 0;
-    }
-    
+    // Clean up any existing RAF
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, currentTime, duration, timeline]);
+  }, []);
 
   // Cleanup on unmount
   useEffect(() => {

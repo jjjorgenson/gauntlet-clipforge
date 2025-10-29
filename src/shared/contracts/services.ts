@@ -139,7 +139,7 @@ export interface IExportService {
    * Export single clip (fast path)
    */
   exportSingleClip(
-    clipPath: string,
+    clip: { sourceFile: string; trimIn: number; trimOut: number },
     config: ExportConfig,
     onProgress: (progress: ExportProgress) => void
   ): Promise<string>; // returns output path

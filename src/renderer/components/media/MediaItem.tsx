@@ -25,6 +25,23 @@ export const MediaItem: React.FC<MediaLibraryComponentProps.MediaItem> = ({
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = 'copy';
+    
+    // Set comprehensive clip data for timeline drop handler
+    const clipData = {
+      id,
+      sourceFile: clip.sourceFile,
+      duration: clip.metadata.duration,
+      width: clip.metadata.resolution.width,
+      height: clip.metadata.resolution.height,
+      fps: clip.metadata.frameRate,
+      codec: clip.metadata.codec,
+      size: clip.metadata.size,
+      thumbnail,
+    };
+    
+    // Set data in the format Timeline expects
+    e.dataTransfer.setData('application/clipforge-clip', JSON.stringify(clipData));
+    // Also set as text for fallback
     e.dataTransfer.setData('text/plain', id);
     
     // Set drag image to the thumbnail if available
@@ -34,12 +51,41 @@ export const MediaItem: React.FC<MediaLibraryComponentProps.MediaItem> = ({
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = 200;
-        canvas.height = 112;
+        // Use 16:9 aspect ratio for drag preview
+        canvas.width = 160;
+        canvas.height = 90;
         
         if (ctx) {
-          ctx.drawImage(img, 0, 0, 200, 112);
-          e.dataTransfer.setDragImage(canvas, 100, 56);
+          // Fill background
+          ctx.fillStyle = '#000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Calculate aspect-fit dimensions
+          const imgAspect = img.width / img.height;
+          const canvasAspect = canvas.width / canvas.height;
+          let drawWidth, drawHeight, offsetX, offsetY;
+          
+          if (imgAspect > canvasAspect) {
+            // Image is wider - fit to width
+            drawWidth = canvas.width;
+            drawHeight = canvas.width / imgAspect;
+            offsetX = 0;
+            offsetY = (canvas.height - drawHeight) / 2;
+          } else {
+            // Image is taller - fit to height
+            drawHeight = canvas.height;
+            drawWidth = canvas.height * imgAspect;
+            offsetX = (canvas.width - drawWidth) / 2;
+            offsetY = 0;
+          }
+          
+          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+          
+          // Add semi-transparent overlay to show it's being dragged
+          ctx.fillStyle = 'rgba(64, 150, 255, 0.3)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          e.dataTransfer.setDragImage(canvas, 80, 45);
         }
       };
     }
@@ -63,22 +109,27 @@ export const MediaItem: React.FC<MediaLibraryComponentProps.MediaItem> = ({
   return (
     <div
       className={`
-        media-item group cursor-pointer select-none
+        media-item group cursor-grab active:cursor-grabbing select-none
         ${isSelected 
-          ? 'ring-2 ring-editor-accent bg-editor-hover' 
-          : 'hover:bg-editor-hover'
+          ? 'ring-2 ring-blue-500 bg-editor-hover shadow-lg shadow-blue-500/20' 
+          : 'hover:bg-editor-hover hover:border-gray-600 hover:shadow-md'
         }
         bg-editor-panel border border-editor-border rounded-lg overflow-hidden
-        transition-all duration-200 ease-in-out
+        transition-all duration-150 ease-out
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900
       `}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       draggable
       onDragStart={handleDragStart}
       title={`${getFileName(clip.sourceFile)} - ${formatDuration(clip.metadata.duration)}`}
+      tabIndex={0}
+      role="button"
+      aria-label={`Media clip: ${getFileName(clip.sourceFile)}`}
+      aria-pressed={isSelected}
     >
       {/* Thumbnail */}
-      <div className="relative aspect-video bg-gray-800">
+      <div className="relative aspect-video bg-gray-900 overflow-hidden">
         {thumbnail ? (
           <img
             src={thumbnail}

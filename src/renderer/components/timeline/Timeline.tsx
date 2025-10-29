@@ -11,6 +11,7 @@ import { TimelineCanvas } from './TimelineCanvas';
 import { TimeRuler } from './TimeRuler';
 import { TimelineControls } from './TimelineControls';
 import { TrackHeader } from './TrackHeader';
+import { TrimDialog } from './TrimDialog';
 import { Clip, Track } from '@types';
 
 export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) => {
@@ -38,26 +39,28 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
   // Track selection state
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   
-  // Timeline store state
-  const {
-    tracks,
-    duration,
-    currentTime,
-    zoom,
-    scrollLeft,
-    selectedClipIds,
-    setZoom,
-    setScrollLeft,
-    seek,
-    moveClip,
-    trimClip,
-    selectClip,
-    clearSelection,
-    deleteSelectedClips,
-    addTrack,
-    removeTrack,
-    updateTrack
-  } = useTimelineStore();
+  // Trim dialog state
+  const [trimClipTarget, setTrimClipTarget] = useState<Clip | null>(null);
+  
+  // Timeline store state - Direct subscriptions for reactive updates
+  const tracks = useTimelineStore((state) => state.tracks);
+  const duration = useTimelineStore((state) => state.duration);
+  const currentTime = useTimelineStore((state) => state.currentTime);
+  const zoom = useTimelineStore((state) => state.zoom);
+  const scrollLeft = useTimelineStore((state) => state.scrollLeft);
+  const selectedClipIds = useTimelineStore((state) => state.selectedClipIds);
+  const isPlaying = useTimelineStore((state) => state.isPlaying);
+  const setZoom = useTimelineStore((state) => state.setZoom);
+  const setScrollLeft = useTimelineStore((state) => state.setScrollLeft);
+  const seek = useTimelineStore((state) => state.seek);
+  const moveClip = useTimelineStore((state) => state.moveClip);
+  const trimClip = useTimelineStore((state) => state.trimClip);
+  const selectClip = useTimelineStore((state) => state.selectClip);
+  const clearSelection = useTimelineStore((state) => state.clearSelection);
+  const deleteSelectedClips = useTimelineStore((state) => state.deleteSelectedClips);
+  const addTrack = useTimelineStore((state) => state.addTrack);
+  const removeTrack = useTimelineStore((state) => state.removeTrack);
+  const updateTrack = useTimelineStore((state) => state.updateTrack);
 
   // Timeline constants
   const PIXELS_PER_SECOND_BASE = 100;
@@ -79,6 +82,13 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
   const pixelsToTime = useCallback((pixels: number): number => {
     return (pixels + scrollLeft) / pixelsPerSecond;
   }, [pixelsPerSecond, scrollLeft]);
+
+  // Initialize with default track if empty
+  useEffect(() => {
+    if (tracks.length === 0) {
+      addTrack('Track 1');
+    }
+  }, [tracks.length, addTrack]);
 
   // Enhanced zoom functions
   const zoomIn = useCallback(() => {
@@ -217,6 +227,39 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     }
   };
 
+  // Handle trim clip request (right-click context menu)
+  const handleTrimClip = useCallback((clipId: string) => {
+    // Find the clip
+    let targetClip: Clip | null = null;
+    for (const track of tracks) {
+      const clip = track.clips.find(c => c.id === clipId);
+      if (clip) {
+        targetClip = clip;
+        break;
+      }
+    }
+
+    if (targetClip) {
+      setTrimClipTarget(targetClip);
+    }
+  }, [tracks]);
+
+  // Handle trim dialog confirm
+  const handleTrimConfirm = useCallback((clipId: string, startTime: number, endTime: number) => {
+    try {
+      trimClip(clipId, startTime, endTime);
+      console.log(`✂️ Clip trimmed: ${clipId} → ${startTime}s to ${endTime}s`);
+      setTrimClipTarget(null);
+    } catch (error: any) {
+      console.error('❌ Trim failed:', error);
+    }
+  }, [trimClip]);
+
+  // Handle trim dialog cancel
+  const handleTrimCancel = useCallback(() => {
+    setTrimClipTarget(null);
+  }, []);
+
   // Mouse event handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -224,11 +267,14 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const time = pixelsToTime(x);
+    
+    // Adjust x to account for track header (timeline starts at TRACK_HEADER_WIDTH)
+    const timelineX = x - TRACK_HEADER_WIDTH;
+    const time = pixelsToTime(timelineX);
 
     // Check if clicking on playhead
     const playheadX = timeToPixels(currentTime);
-    if (Math.abs(x - playheadX) < 10) {
+    if (Math.abs(timelineX - playheadX) < 10) {
       setDragState({
         isDragging: true,
         dragType: 'playhead',
@@ -241,7 +287,7 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     }
 
     // Check if clicking on a clip
-    const clipHit = findClipAtPosition(x, y);
+    const clipHit = findClipAtPosition(timelineX, y);
     if (clipHit) {
       const { clip, hitRegion } = clipHit;
       
@@ -261,9 +307,9 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
         isDragging: true,
         dragType,
         dragClipId: clip.id,
-        dragStartX: x,
+        dragStartX: timelineX,
         dragStartTime: clip.startTime,
-        dragOffset: x - timeToPixels(clip.startTime)
+        dragOffset: timelineX - timeToPixels(clip.startTime)
       });
       return;
     }
@@ -314,14 +360,17 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     }
   }, [selectedClipIds, deleteSelectedClips]);
 
+  // Drop zone state
+  const [dropZone, setDropZone] = useState<{
+    isActive: boolean;
+    trackIndex: number;
+    dropTime: number;
+  } | null>(null);
+
   // Drop handling
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
     
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -329,33 +378,87 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
+    // Only show drop zone in timeline area (not track headers)
+    if (x >= TRACK_HEADER_WIDTH && tracks.length > 0) {
+      const adjustedX = x - TRACK_HEADER_WIDTH;
+      const dropTime = pixelsToTime(adjustedX);
+      const trackIndex = Math.max(0, Math.min(tracks.length - 1, Math.floor((y - 40) / (TRACK_HEIGHT + TRACK_MARGIN))));
+      
+      setDropZone({
+        isActive: true,
+        trackIndex,
+        dropTime: Math.max(0, dropTime)
+      });
+    } else {
+      setDropZone(null);
+    }
+  }, [pixelsToTime, tracks]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear drop zone if leaving the container
+    if (e.currentTarget === e.target) {
+      setDropZone(null);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) {
+      setDropZone(null);
+      return;
+    }
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
     // Only handle drops in the timeline area (not track headers)
-    if (x < TRACK_HEADER_WIDTH) return;
+    if (x < TRACK_HEADER_WIDTH) {
+      setDropZone(null);
+      return;
+    }
 
     // Get clip data from drag
     const clipData = e.dataTransfer.getData('application/clipforge-clip');
-    if (!clipData) return;
+    if (!clipData) {
+      console.warn('No clip data found in drag event');
+      setDropZone(null);
+      return;
+    }
 
     try {
       const clipInfo = JSON.parse(clipData);
       
       // Calculate drop position
-      const dropTime = pixelsToTime(x - TRACK_HEADER_WIDTH);
-      const trackIndex = Math.floor(y / (TRACK_HEIGHT + TRACK_MARGIN));
+      const adjustedX = x - TRACK_HEADER_WIDTH;
+      let dropTime = Math.max(0, pixelsToTime(adjustedX));
+      
+      // Snap to 0 if very close to start
+      if (dropTime < 0.05) {
+        dropTime = 0;
+      }
+      
+      const trackIndex = Math.max(0, Math.min(tracks.length - 1, Math.floor((y - 40) / (TRACK_HEIGHT + TRACK_MARGIN))));
       const targetTrack = tracks[trackIndex];
       
       if (targetTrack) {
+        const duration = clipInfo.duration || 5;
+        
+        // Snap drop time to nearby clips
+        const snappedTime = snapToClips(dropTime);
+        
         // Create new clip at drop position
         const newClip: Clip = {
-          id: `clip-${Date.now()}`,
+          id: `clip-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           trackId: targetTrack.id,
           sourceFile: clipInfo.sourceFile,
-          startTime: Math.max(0, dropTime),
-          endTime: Math.max(0, dropTime) + (clipInfo.duration || 5), // Default 5 seconds
+          startTime: snappedTime,
+          endTime: snappedTime + duration,
           trimIn: 0,
-          trimOut: clipInfo.duration || 5,
+          trimOut: duration,
           metadata: {
-            duration: clipInfo.duration || 5,
+            duration,
             resolution: {
               width: clipInfo.width || 1920,
               height: clipInfo.height || 1080
@@ -366,17 +469,49 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
           }
         };
         
+        // Check for collisions and adjust if necessary
+        let finalStartTime = snappedTime;
+        const hasCollision = targetTrack.clips.some(clip => 
+          (newClip.startTime < clip.endTime && newClip.endTime > clip.startTime)
+        );
+        
+        if (hasCollision) {
+          // Find the next available position after the collision
+          const sortedClips = [...targetTrack.clips].sort((a, b) => a.startTime - b.startTime);
+          for (const clip of sortedClips) {
+            if (finalStartTime < clip.endTime) {
+              finalStartTime = clip.endTime;
+            }
+          }
+          newClip.startTime = finalStartTime;
+          newClip.endTime = finalStartTime + duration;
+        }
+        
         // Add clip to track using updateTrack
         const updatedTrack = {
           ...targetTrack,
           clips: [...targetTrack.clips, newClip].sort((a, b) => a.startTime - b.startTime)
         };
         updateTrack(targetTrack.id, updatedTrack);
+        
+        // Select the newly added clip
+        selectClip(newClip.id, false);
+        
+        // Seek to the start of the new clip so video preview shows it
+        seek(newClip.startTime);
+        
+        console.log('Clip added to timeline:', {
+          track: targetTrack.name,
+          startTime: newClip.startTime,
+          duration: newClip.endTime - newClip.startTime
+        });
       }
     } catch (error) {
       console.error('Failed to parse clip data:', error);
+    } finally {
+      setDropZone(null);
     }
-  }, [pixelsToTime, tracks, updateTrack]);
+  }, [pixelsToTime, tracks, updateTrack, snapToClips, selectClip]);
 
   // Global mouse events for drag
   useEffect(() => {
@@ -387,8 +522,9 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
       if (!rect) return;
 
       const x = e.clientX - rect.left;
+      const timelineX = x - TRACK_HEADER_WIDTH;
       const y = e.clientY - rect.top;
-      const time = pixelsToTime(x);
+      const time = pixelsToTime(timelineX);
 
       if (dragState.dragType === 'playhead') {
         const clampedTime = Math.max(0, Math.min(time, duration));
@@ -405,8 +541,8 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
 
         if (dragState.dragType === 'clip') {
           const newStartTime = snapToClips(time - dragState.dragOffset / pixelsPerSecond, clip.id);
-          const duration = clip.endTime - clip.startTime;
-          const newEndTime = newStartTime + duration;
+          const clipDuration = clip.endTime - clip.startTime;
+          const newEndTime = newStartTime + clipDuration;
 
           const targetTrack = tracks.find(t => {
             const trackIndex = tracks.indexOf(t);
@@ -414,7 +550,8 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
             return y >= trackY && y <= trackY + TRACK_HEIGHT;
           });
 
-          if (targetTrack && newStartTime >= 0 && newEndTime <= duration) {
+          // Allow movement if start time is valid (don't restrict by timeline duration - it will expand)
+          if (targetTrack && newStartTime >= 0) {
             moveClip(clip.id, targetTrack.id, newStartTime);
           }
         } else if (dragState.dragType === 'trim-left') {
@@ -468,6 +605,7 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
       onMouseUp={handleMouseUp}
       onKeyDown={handleKeyDown}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       tabIndex={0}
       style={{
@@ -491,7 +629,13 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
         onZoomOut={zoomOut}
         onFitToWindow={fitToWindow}
         onAddTrack={() => addTrack(`Track ${tracks.length + 1}`)}
-        onDeleteTrack={removeTrack}
+        onDeleteTrack={() => {
+          // Delete the last track
+          if (tracks.length > 1) {
+            const lastTrack = tracks[tracks.length - 1];
+            removeTrack(lastTrack.id);
+          }
+        }}
         trackCount={tracks.length}
         canDeleteTrack={tracks.length > 1}
       />
@@ -571,6 +715,59 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
               backgroundColor: '#1a1a1a'
             }}
           >
+            {/* Empty State Overlay */}
+            {tracks.length > 0 && tracks.every(track => track.clips.length === 0) && !dropZone && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  zIndex: 1
+                }}
+              >
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '48px',
+                    backgroundColor: 'rgba(42, 42, 42, 0.6)',
+                    borderRadius: '16px',
+                    border: '2px dashed rgba(100, 100, 100, 0.4)',
+                    maxWidth: '400px'
+                  }}
+                >
+                  <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.6 }}>
+                    🎬
+                  </div>
+                  <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>
+                    Drop clips here to start editing
+                  </h3>
+                  <p style={{ fontSize: '14px', color: '#999', marginBottom: '16px' }}>
+                    Drag video clips from the Media Library to add them to your timeline
+                  </p>
+                  <div style={{ fontSize: '12px', color: '#666', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#4096ff' }}></div>
+                      <span>Drag clips to arrange them</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#4096ff' }}></div>
+                      <span>Trim edges to adjust duration</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: '#4096ff' }}></div>
+                      <span>Press Delete to remove clips</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <TimelineCanvas
               tracks={tracks}
               currentTime={currentTime}
@@ -581,22 +778,103 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
                 ...dragState,
                 dragType: dragState.dragType === 'pan' ? null : dragState.dragType
               }}
-              onClipClick={(clipId, multiSelect) => {
+              onClipClick={(clipId: string, multiSelect: boolean) => {
                 selectClip(clipId, multiSelect);
               }}
-              onClipDragStart={(clipId) => {
+              onClipDragStart={(clipId: string) => {
+                // Find the clip to set up drag state
+                const clip = tracks.flatMap(t => t.clips).find(c => c.id === clipId);
+                if (clip && containerRef.current) {
+                  const rect = containerRef.current.getBoundingClientRect();
+                  const clipX = timeToPixels(clip.startTime);
+                  setDragState({
+                    isDragging: true,
+                    dragType: 'clip',
+                    dragClipId: clipId,
+                    dragStartX: clipX,
+                    dragStartTime: clip.startTime,
+                    dragOffset: 0
+                  });
+                }
+              }}
+              onClipDragEnd={(_clipId: string, _trackId: string, _position: number) => {
+                // Cleanup handled by global mouse up
+              }}
+              onTrimHandleDrag={(_clipId: string, _handle: 'start' | 'end', _delta: number) => {
                 // Handled by mouse events
               }}
-              onClipDragEnd={(clipId, trackId, position) => {
-                // Handled by mouse events
-              }}
-              onTrimHandleDrag={(clipId, handle, delta) => {
-                // Handled by mouse events
-              }}
-              onPlayheadDrag={(time) => {
+              onPlayheadDrag={(time: number) => {
                 seek(time);
               }}
+              onTrim={handleTrimClip}
             />
+            
+            {/* Drop Zone Indicator */}
+            {dropZone && dropZone.isActive && (
+              <>
+                {/* Highlight target track */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: dropZone.trackIndex * (TRACK_HEIGHT + TRACK_MARGIN),
+                    width: '100%',
+                    height: TRACK_HEIGHT,
+                    backgroundColor: 'rgba(59, 130, 246, 0.18)',
+                    border: '2px dashed rgba(59, 130, 246, 0.8)',
+                    pointerEvents: 'none',
+                    zIndex: 100,
+                    borderRadius: '6px',
+                    animation: 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                  }}
+                />
+                {/* Glow effect behind track */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: -4,
+                    top: dropZone.trackIndex * (TRACK_HEIGHT + TRACK_MARGIN) - 4,
+                    width: 'calc(100% + 8px)',
+                    height: TRACK_HEIGHT + 8,
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    pointerEvents: 'none',
+                    zIndex: 99,
+                    borderRadius: '8px',
+                    filter: 'blur(4px)'
+                  }}
+                />
+                {/* Drop position indicator line */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: timeToPixels(dropZone.dropTime),
+                    top: dropZone.trackIndex * (TRACK_HEIGHT + TRACK_MARGIN) - 4,
+                    width: '4px',
+                    height: TRACK_HEIGHT + 8,
+                    backgroundColor: 'rgba(59, 130, 246, 1)',
+                    pointerEvents: 'none',
+                    zIndex: 101,
+                    boxShadow: '0 0 16px rgba(59, 130, 246, 0.8), 0 0 32px rgba(59, 130, 246, 0.4)',
+                    borderRadius: '2px'
+                  }}
+                >
+                  {/* Arrow indicator at top */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -10,
+                      left: -6,
+                      width: 0,
+                      height: 0,
+                      borderLeft: '8px solid transparent',
+                      borderRight: '8px solid transparent',
+                      borderTop: '10px solid rgba(59, 130, 246, 1)',
+                      filter: 'drop-shadow(0 0 4px rgba(59, 130, 246, 0.8))'
+                    }}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -618,6 +896,12 @@ export const Timeline: React.FC<{ className?: string }> = ({ className = '' }) =
       >
         Zoom: {zoom.toFixed(2)}x | Scroll: {scrollLeft.toFixed(0)}px | Time: {currentTime.toFixed(2)}s
       </div>
+      {/* Trim Dialog */}
+      <TrimDialog
+        clip={trimClipTarget}
+        onConfirm={handleTrimConfirm}
+        onCancel={handleTrimCancel}
+      />
     </div>
   );
 };

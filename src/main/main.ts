@@ -5,7 +5,7 @@
  * Handles window creation, lifecycle, and IPC setup.
  */
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, protocol } from 'electron';
 import path from 'path';
 import { registerIpcHandlers } from './ipc';
 
@@ -18,6 +18,22 @@ class ClipForgeApp {
   }
 
   private initializeApp(): void {
+    // Register custom protocol BEFORE app ready
+    // This must be done in the main process before any windows are created
+    protocol.registerSchemesAsPrivileged([
+      {
+        scheme: 'media',
+        privileges: {
+          standard: true,
+          secure: true,
+          supportFetchAPI: true,
+          corsEnabled: true,
+          stream: true,
+          bypassCSP: true
+        }
+      }
+    ]);
+
     // Single instance lock - only allow one instance of the app
     const gotTheLock = app.requestSingleInstanceLock();
     if (!gotTheLock) {
@@ -60,11 +76,107 @@ class ClipForgeApp {
     console.log(`⚛️ Chrome: ${process.versions.chrome}`);
     console.log(`🌍 Environment: ${this.isDev ? 'development' : 'production'}`);
 
+    // Register custom protocol for loading local media files
+    this.registerMediaProtocol();
+
     // Register IPC handlers
     registerIpcHandlers();
 
     // Create main window
     this.createWindow();
+  }
+
+  private registerMediaProtocol(): void {
+    const fs = require('fs');
+    const pathModule = require('path');
+
+    // Register stream protocol - this was WORKING before!
+    protocol.registerStreamProtocol('media', (request, callback) => {
+      try {
+        // The browser sends: media://c/Users/... (lowercases drive, removes colon)
+        // We need to reconstruct: C:\Users\...
+        const url = request.url.replace('media://', '');
+        const decodedPath = decodeURIComponent(url);
+        
+        console.log('🎬 Media protocol request:', {
+          originalUrl: request.url,
+          decodedPath
+        });
+
+        // Fix Windows path: c/Users/... → C:\Users\...
+        let filePath = decodedPath;
+        if (process.platform === 'win32') {
+          // Convert: c/Users/... → C:/Users/...
+          if (filePath.match(/^[a-z]\//)) {
+            filePath = filePath.charAt(0).toUpperCase() + ':' + filePath.slice(1);
+          }
+        }
+        
+        filePath = pathModule.normalize(filePath);
+        
+        if (!fs.existsSync(filePath)) {
+          console.error('❌ File not found:', filePath);
+          callback({ statusCode: 404 });
+          return;
+        }
+
+        const stat = fs.statSync(filePath);
+        const fileSize = stat.size;
+        const ext = pathModule.extname(filePath).toLowerCase();
+        
+        const mimeTypes: Record<string, string> = {
+          '.mp4': 'video/mp4',
+          '.webm': 'video/webm',
+          '.mkv': 'video/x-matroska',
+          '.avi': 'video/x-msvideo',
+          '.mov': 'video/quicktime',
+          '.m4v': 'video/mp4',
+        };
+        
+        const mimeType = mimeTypes[ext] || 'video/mp4';
+        const rangeHeader = request.headers['Range'] || request.headers['range'];
+        
+        if (rangeHeader) {
+          const parts = rangeHeader.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+          const chunkSize = (end - start) + 1;
+
+          console.log('🎬 Range request:', { start, end, chunkSize, fileSize });
+
+          const stream = fs.createReadStream(filePath, { start, end });
+
+          callback({
+            statusCode: 206,
+            headers: {
+              'Content-Type': mimeType,
+              'Content-Length': chunkSize.toString(),
+              'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+              'Accept-Ranges': 'bytes',
+            },
+            data: stream
+          });
+        } else {
+          const stream = fs.createReadStream(filePath);
+          callback({
+            statusCode: 200,
+            headers: {
+              'Content-Type': mimeType,
+              'Content-Length': fileSize.toString(),
+              'Accept-Ranges': 'bytes',
+            },
+            data: stream
+          });
+        }
+        
+        console.log('✅ Streaming:', pathModule.basename(filePath));
+      } catch (error) {
+        console.error('❌ Protocol handler error:', error);
+        callback({ statusCode: 500 });
+      }
+    });
+
+    console.log('✅ Custom "media://" protocol registered');
   }
 
   private createWindow(): void {
@@ -80,7 +192,8 @@ class ClipForgeApp {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,       // Security: Isolate context
         nodeIntegration: false,        // Security: Disable node integration
-        sandbox: true,                 // Security: Enable sandbox
+        sandbox: true,                 // ✅ ENABLED - secure sandbox
+        webSecurity: true,             // ✅ ENABLED - custom protocol bypasses safely
       },
       // Modern window style
       titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',

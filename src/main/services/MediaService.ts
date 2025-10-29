@@ -57,8 +57,59 @@ export class MediaService implements IMediaService {
 
           const audioStream = metadata.streams.find(stream => stream.codec_type === 'audio');
           
+          // Debug logging for duration parsing
+          console.log('🔍 FFprobe metadata format:', {
+            formatDuration: metadata.format?.duration,
+            formatDurationType: typeof metadata.format?.duration,
+            videoStreamDuration: videoStream.duration,
+            videoStreamTags: videoStream.tags
+          });
+          
+          // Try to get duration from multiple sources
+          let duration = -1; // Use -1 as sentinel value instead of 0
+          
+          // Priority 1: format.duration (most reliable)
+          if (metadata.format?.duration) {
+            const formatDuration = typeof metadata.format.duration === 'string' 
+              ? parseFloat(metadata.format.duration) 
+              : metadata.format.duration;
+            
+            if (!isNaN(formatDuration) && formatDuration > 0) {
+              duration = formatDuration;
+              console.log('✅ Using format.duration:', duration);
+            }
+          }
+          
+          // Priority 2: videoStream.duration
+          if (duration === -1 && videoStream.duration) {
+            const streamDuration = parseFloat(videoStream.duration.toString());
+            if (!isNaN(streamDuration) && streamDuration > 0) {
+              duration = streamDuration;
+              console.log('✅ Using videoStream.duration:', duration);
+            }
+          }
+          
+          // Priority 3: Try stream tags DURATION (format: "HH:MM:SS.mmm")
+          if (duration === -1 && videoStream.tags?.DURATION) {
+            const durationTag = videoStream.tags.DURATION;
+            const parts = durationTag.split(':');
+            if (parts.length === 3) {
+              const hours = parseInt(parts[0]);
+              const minutes = parseInt(parts[1]);
+              const seconds = parseFloat(parts[2]);
+              duration = hours * 3600 + minutes * 60 + seconds;
+              console.log('✅ Using stream DURATION tag:', duration);
+            }
+          }
+          
+          // If still no valid duration, use default
+          if (duration === -1 || isNaN(duration) || duration <= 0) {
+            console.warn('⚠️ Could not determine video duration, using default');
+            duration = 30; // Default fallback
+          }
+          
           const videoMetadata: VideoMetadata = {
-            duration: parseFloat(videoStream.duration || '0'),
+            duration,
             resolution: {
               width: videoStream.width || 0,
               height: videoStream.height || 0,
@@ -68,6 +119,7 @@ export class MediaService implements IMediaService {
             size: fs.statSync(filePath).size,
           };
 
+          console.log('✅ Parsed metadata:', videoMetadata);
           resolve(videoMetadata);
         } catch (error) {
           reject(new Error(`Failed to parse metadata: ${error}`));
@@ -90,11 +142,19 @@ export class MediaService implements IMediaService {
       throw new Error(`File not found: ${filePath}`);
     }
 
+    // Validate timestamp
+    if (isNaN(timestamp) || timestamp < 0) {
+      console.warn(`⚠️ Invalid timestamp: ${timestamp}, using 0`);
+      timestamp = 0;
+    }
+
     // Mock mode for development/testing
     if (ffmpegManager.isMockMode()) {
       console.log('🎭 Using mock thumbnail for:', filePath);
       return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     }
+
+    console.log(`🖼️ Generating thumbnail: file=${path.basename(filePath)}, time=${timestamp}s, size=${width}x${height}`);
 
     return new Promise((resolve, reject) => {
       const tempDir = require('os').tmpdir();

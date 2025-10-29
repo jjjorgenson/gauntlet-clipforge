@@ -34,6 +34,7 @@ export const MediaLibrary: React.FC<MediaLibraryComponentProps.MediaLibrary> = (
       for (const item of items) {
         if (!item.thumbnail) {
           try {
+            console.log(`🖼️ Generating thumbnail for: ${item.clip.sourceFile}`);
             // Generate thumbnail at 5 seconds or 10% of duration
             const timestamp = Math.min(5, item.clip.metadata.duration * 0.1);
             const thumbnail = await window.api.media.generateThumbnail({
@@ -43,10 +44,15 @@ export const MediaLibrary: React.FC<MediaLibraryComponentProps.MediaLibrary> = (
               height: 112, // 16:9 aspect ratio
             });
             
+            console.log(`✅ Thumbnail generated successfully for: ${item.clip.sourceFile}`);
             // Update the item with thumbnail
             useMediaStore.getState().updateThumbnail(item.id, thumbnail.thumbnail);
           } catch (error) {
-            console.warn(`Failed to load thumbnail for ${item.clip.sourceFile}:`, error);
+            console.error(`❌ Failed to load thumbnail for ${item.clip.sourceFile}:`, error);
+            console.error('Error details:', {
+              message: error instanceof Error ? error.message : 'Unknown error',
+              stack: error instanceof Error ? error.stack : undefined
+            });
           }
         }
       }

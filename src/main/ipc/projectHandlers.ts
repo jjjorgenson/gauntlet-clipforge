@@ -58,13 +58,21 @@ export function registerProjectHandlers(): void {
     console.log('💾 IPC: Save dialog requested');
     
     try {
+      // If defaultPath ends with .mp4, this is an EXPORT dialog (not project save)
+      const isExportDialog = req.defaultPath?.endsWith('.mp4');
+      
       const { canceled, filePath } = await dialog.showSaveDialog({
-        title: 'Save ClipForge Project',
+        title: isExportDialog ? 'Export Video' : 'Save ClipForge Project',
         defaultPath: req.defaultPath || 'Untitled Project.clipforge',
-        filters: [
-          { name: 'ClipForge Projects', extensions: ['clipforge'] },
-          { name: 'All Files', extensions: ['*'] }
-        ],
+        filters: isExportDialog 
+          ? [
+              { name: 'Video Files', extensions: ['mp4'] },
+              { name: 'All Files', extensions: ['*'] }
+            ]
+          : [
+              { name: 'ClipForge Projects', extensions: ['clipforge'] },
+              { name: 'All Files', extensions: ['*'] }
+            ],
         properties: ['createDirectory'],
       });
 
@@ -72,8 +80,13 @@ export function registerProjectHandlers(): void {
         return { filePath: null };
       }
 
-      // Ensure .clipforge extension
-      const finalPath = filePath.endsWith('.clipforge') ? filePath : `${filePath}.clipforge`;
+      // Ensure correct extension
+      let finalPath = filePath;
+      if (isExportDialog && !filePath.endsWith('.mp4')) {
+        finalPath = `${filePath}.mp4`;
+      } else if (!isExportDialog && !filePath.endsWith('.clipforge')) {
+        finalPath = `${filePath}.clipforge`;
+      }
       
       return { filePath: finalPath };
     } catch (error: any) {

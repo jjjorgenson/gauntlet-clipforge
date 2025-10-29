@@ -281,8 +281,9 @@ export const useTimelineStore = create<TimelineStoreContract.Store>((set, get) =
 
   seek: (time: number) => {
     set({ 
-      currentTime: Math.max(0, Math.min(time, get().duration)),
-      isPlaying: false 
+      currentTime: Math.max(0, Math.min(time, get().duration))
+      // NOTE: Don't set isPlaying: false here! This causes infinite toggle loops
+      // when the video naturally updates its time during playback
     });
   },
 

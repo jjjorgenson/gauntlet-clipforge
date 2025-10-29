@@ -36,9 +36,13 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
   // Find the current clip based on timeline position
   useEffect(() => {
     const findCurrentClip = () => {
+      // Small tolerance for floating point comparisons (50ms)
+      const EPSILON = 0.05;
+      
       for (const track of tracks) {
         for (const clip of track.clips) {
-          if (currentTime >= clip.startTime && currentTime <= clip.endTime) {
+          // Use epsilon tolerance: if currentTime is within 50ms of the clip range, consider it a match
+          if (currentTime >= clip.startTime - EPSILON && currentTime <= clip.endTime + EPSILON) {
             return clip;
           }
         }
@@ -65,20 +69,17 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
 
   // Handle video time updates
   const handleTimeUpdate = (time: number) => {
-    if (currentClip) {
-      const timelineTime = currentClip.startTime + time;
-      seek(timelineTime);
+    if (!currentClip) return;
+    
+    const timelineTime = currentClip.startTime + time;
+    
+    if (Math.abs(timelineTime - currentTime) > 0.1) {
+      useTimelineStore.setState({ currentTime: timelineTime });
     }
   };
 
-  // Handle play/pause
-  const handlePlay = () => {
-    play();
-  };
-
-  const handlePause = () => {
-    pause();
-  };
+  // NOTE: handlePlay and handlePause removed - VideoPlayer no longer uses these callbacks
+  // Play/pause is controlled via PlaybackControls → store → VideoPlayer.isPlaying prop
 
   // Handle video ended
   const handleEnded = () => {
@@ -128,30 +129,43 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
   const totalDuration = duration;
 
   return (
-    <div className={`video-preview ${className}`}>
-      {/* Video Player */}
-      <div className="video-player-container bg-black rounded-lg overflow-hidden mb-4">
-        {currentClip ? (
-          <VideoPlayer
-            ref={videoRef}
-            clip={currentClip}
-            currentTime={currentTime - currentClip.startTime}
-            isPlaying={isPlaying}
-            volume={volume}
-            onTimeUpdate={handleTimeUpdate}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onEnded={handleEnded}
-          />
-        ) : (
-          <div className="aspect-video flex items-center justify-center bg-gray-800">
-            <div className="text-center text-gray-400">
-              <div className="text-4xl mb-2">🎬</div>
-              <p className="text-lg">No video at current time</p>
-              <p className="text-sm">Add clips to timeline to preview</p>
-            </div>
+    <div className={`video-preview flex flex-col h-full ${className}`}>
+      {/* Video Player Container with proper centering */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-full" style={{ aspectRatio: '16/9' }}>
+          <div className="relative w-full h-full bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-lg overflow-hidden shadow-2xl">
+            {currentClip ? (
+              <>
+                {(() => {
+                  // Calculate video time relative to clip start, clamped to valid range
+                  const videoTime = Math.max(0, currentTime - currentClip.startTime);
+                  const clipDuration = currentClip.endTime - currentClip.startTime;
+                  const clampedVideoTime = Math.min(videoTime, clipDuration);
+                  
+                  return (
+                    <VideoPlayer
+                      ref={videoRef}
+                      clip={currentClip}
+                      currentTime={clampedVideoTime}
+                      isPlaying={isPlaying}
+                      volume={volume}
+                      onTimeUpdate={handleTimeUpdate}
+                      onEnded={handleEnded}
+                    />
+                  );
+                })()}
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center text-gray-400">
+                  <div className="text-5xl mb-3 opacity-40">🎬</div>
+                  <p className="text-lg font-medium text-gray-300 mb-1">No video at current time</p>
+                  <p className="text-sm text-gray-500">Add clips to timeline to preview</p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Playback Controls */}
@@ -160,7 +174,7 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
         currentTime={currentTime}
         duration={totalDuration}
         volume={volume}
-        onPlayPause={() => isPlaying ? handlePause() : handlePlay()}
+        onPlayPause={() => isPlaying ? pause() : play()}
         onSeek={handleSeek}
         onVolumeChange={handleVolumeChange}
         onFullscreen={handleFullscreen}
@@ -168,16 +182,19 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
 
       {/* Current Clip Info */}
       {currentClip && (
-        <div className="mt-4 p-3 bg-editor-panel rounded-lg">
-          <div className="flex items-center justify-between text-sm">
-            <div>
-              <span className="text-gray-400">Playing:</span>
-              <span className="text-white ml-2 font-medium">
-                {currentClip.sourceFile.split('/').pop()?.split('\\').pop() || 'Unknown'}
-              </span>
-            </div>
-            <div className="text-gray-400">
-              {formatDuration(currentTime - currentClip.startTime)} / {formatDuration(currentClip.metadata.duration)}
+        <div className="px-4 pb-4">
+          <div className="p-3 bg-editor-panel border border-editor-border rounded-lg">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-gray-400">Playing:</span>
+                <span className="text-white font-medium truncate max-w-xs">
+                  {currentClip.sourceFile.split('/').pop()?.split('\\').pop() || 'Unknown'}
+                </span>
+              </div>
+              <div className="text-gray-400 font-mono text-xs">
+                {formatDuration(currentTime - currentClip.startTime)} / {formatDuration(currentClip.metadata.duration)}
+              </div>
             </div>
           </div>
         </div>

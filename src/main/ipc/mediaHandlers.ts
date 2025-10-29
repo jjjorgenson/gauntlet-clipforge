@@ -41,9 +41,19 @@ export function registerMediaHandlers(): void {
 
           // Get metadata
           const metadata = await mediaService.getMetadata(filePath);
+          console.log('📊 Metadata received:', { 
+            duration: metadata.duration, 
+            resolution: metadata.resolution,
+            codec: metadata.codec 
+          });
           
           // Generate a thumbnail at 5 seconds or 10% of duration
-          const thumbnailTime = Math.min(5, metadata.duration * 0.1);
+          // Ensure we have a valid duration before calculating timestamp
+          const validDuration = metadata.duration && !isNaN(metadata.duration) ? metadata.duration : 30;
+          const thumbnailTime = Math.min(5, validDuration * 0.1);
+          
+          console.log('🖼️ Generating thumbnail at time:', thumbnailTime, 'seconds');
+          
           const thumbnail = await mediaService.generateThumbnail(
             filePath, 
             thumbnailTime, 

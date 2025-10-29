@@ -34,23 +34,59 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPreviewComponentProps
       getDuration: () => videoRef.current?.duration || 0,
     }));
 
-    // Sync video currentTime with timeline
+    // Reset video when clip changes
     useEffect(() => {
-      if (videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 0.1) {
+      if (videoRef.current && clip?.sourceFile) {
+        const video = videoRef.current;
+        
+        // Normalize Windows backslashes to forward slashes
+        // Remove the colon from drive letter (C: → C)
+        const normalized = clip.sourceFile.replace(/\\/g, '/').replace(':', '');
+        const mediaUrl = `media://${normalized}`;
+        
+        // Only reload if the source actually changed
+        if (video.src !== mediaUrl) {
+          video.src = mediaUrl;
+          video.load();
+          
+          // Set initial time only when loading new source
+          video.currentTime = currentTime;
+          lastTimeRef.current = currentTime;
+        }
+      }
+    }, [clip?.sourceFile]); // Remove currentTime from dependencies!
+
+    // Sync video currentTime with timeline (only when NOT playing)
+    // During playback, the video drives the timeline via onTimeUpdate
+    useEffect(() => {
+      if (!isPlaying && videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 0.1) {
         videoRef.current.currentTime = currentTime;
       }
-    }, [currentTime]);
+    }, [currentTime, isPlaying]);
 
-    // Handle play/pause state
+    // Handle play/pause state - store is the single source of truth
     useEffect(() => {
       if (!videoRef.current) return;
 
+      const video = videoRef.current;
+
       if (isPlaying) {
-        videoRef.current.play().catch(console.error);
+        // Only play if not already playing and if video is ready
+        if (video.paused && video.readyState >= 2) {
+          video.play().catch((err) => {
+            // Ignore AbortError - it's benign and happens during rapid state changes
+            if (err.name !== 'AbortError') {
+              console.error('Video play error:', err);
+            }
+          });
+        }
       } else {
-        videoRef.current.pause();
+        // Only pause if not already paused
+        if (!video.paused) {
+          video.pause();
+        }
       }
-    }, [isPlaying]);
+    }, [isPlaying, clip?.sourceFile]);
 
     // Handle volume changes
     useEffect(() => {
@@ -71,15 +107,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPreviewComponentProps
       }
     };
 
-    const handlePlay = () => {
-      onPlay();
-    };
-
-    const handlePause = () => {
-      onPause();
-    };
-
     const handleEnded = () => {
+      // Only respond to the video naturally ending
       onEnded();
     };
 
@@ -95,6 +124,30 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPreviewComponentProps
       if (videoRef.current) {
         lastTimeRef.current = videoRef.current.currentTime;
       }
+    };
+
+    const handleCanPlay = () => {
+      // Video is ready to play
+    };
+
+    const handleError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+      const video = e.currentTarget;
+      console.error('❌ Video error:', {
+        error: video.error,
+        errorCode: video.error?.code,
+        errorMessage: video.error?.message,
+        networkState: video.networkState,
+        readyState: video.readyState,
+        currentSrc: video.currentSrc
+      });
+    };
+
+    const handleLoadStart = () => {
+      // Video load started
+    };
+
+    const handleLoadedData = () => {
+      // Video data loaded (first frame)
     };
 
     if (!clip) {
@@ -113,22 +166,20 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPreviewComponentProps
       <video
         ref={videoRef}
         className="w-full h-full object-contain"
-        src={clip.sourceFile}
         preload="metadata"
         playsInline
         onTimeUpdate={handleTimeUpdate}
-        onPlay={handlePlay}
-        onPause={handlePause}
         onEnded={handleEnded}
         onLoadedMetadata={handleLoadedMetadata}
         onSeeked={handleSeeked}
+        onCanPlay={handleCanPlay}
+        onError={handleError}
+        onLoadStart={handleLoadStart}
+        onLoadedData={handleLoadedData}
         style={{
           backgroundColor: '#000',
         }}
       >
-        <source src={clip.sourceFile} type="video/mp4" />
-        <source src={clip.sourceFile} type="video/webm" />
-        <source src={clip.sourceFile} type="video/quicktime" />
         Your browser does not support the video tag.
       </video>
     );

@@ -167,8 +167,8 @@ export namespace VideoPreviewComponentProps {
     isPlaying: boolean;
     volume: number;
     onTimeUpdate: (time: number) => void;
-    onPlay: () => void;
-    onPause: () => void;
+    onPlay?: () => void; // Optional - no longer used (store is single source of truth)
+    onPause?: () => void; // Optional - no longer used (store is single source of truth)
     onEnded: () => void;
   }
 

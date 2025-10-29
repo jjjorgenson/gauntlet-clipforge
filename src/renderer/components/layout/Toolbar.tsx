@@ -7,10 +7,20 @@
 
 import React from 'react';
 import { useStore } from '../../store';
+import { useTimelineStore } from '../../store/timelineStore';
 import { Button } from '../common';
 
 export const Toolbar: React.FC = () => {
-  const { timeline, recording, export: exportStore, media, app } = useStore();
+  const { recording, export: exportStore, media, app } = useStore();
+  
+  // Direct subscriptions to timeline store for reactive updates
+  const duration = useTimelineStore((state) => state.duration);
+  const isPlaying = useTimelineStore((state) => state.isPlaying);
+  const play = useTimelineStore((state) => state.play);
+  const pause = useTimelineStore((state) => state.pause);
+  const seek = useTimelineStore((state) => state.seek);
+  const zoom = useTimelineStore((state) => state.zoom);
+  const setZoom = useTimelineStore((state) => state.setZoom);
 
   // Handle import action
   const handleImport = async () => {
@@ -55,27 +65,78 @@ export const Toolbar: React.FC = () => {
   };
 
   // Handle export action
-  const handleExport = () => {
-    exportStore.showDialog(true);
+  const handleExport = async () => {
+    console.log('🎬 Export button clicked!');
+    
+    try {
+      // Get current timeline tracks
+      const tracks = useTimelineStore.getState().tracks;
+      const allClips = tracks.flatMap(track => track.clips);
+      
+      console.log('📊 Clips to export:', allClips.length);
+      
+      if (allClips.length === 0) {
+        alert('⚠️ Add clips to timeline first!');
+        return;
+      }
+      
+      // Show save dialog
+      const result = await window.api.project.openSaveDialog({
+        defaultPath: 'output.mp4'
+      });
+      
+      console.log('💾 Save dialog result:', result);
+      
+      if (!result.filePath) {
+        console.log('❌ Export canceled');
+        return;
+      }
+      
+      console.log('📤 Exporting to:', result.filePath);
+      alert('🎬 Exporting... (This will take a moment)');
+      
+      // Call export via IPC with correct format
+      await window.api.export.start({
+        config: {
+          outputPath: result.filePath,
+          quality: 'medium',
+          resolution: { width: 1920, height: 1080 },
+          fps: 30,
+          codec: 'h264'
+        },
+        timeline: {
+          tracks: tracks
+        }
+      });
+      
+      alert('✅ Export complete!\n' + result.filePath);
+      
+      // Open file location
+      await window.api.system.showItem({ path: result.filePath });
+      
+    } catch (error: any) {
+      console.error('❌ Export failed:', error);
+      alert('❌ Export failed: ' + error.message);
+    }
   };
 
   // Handle play/pause action
   const handlePlayPause = () => {
-    if (timeline.isPlaying) {
-      timeline.pause();
+    if (isPlaying) {
+      pause();
     } else {
-      timeline.play();
+      play();
     }
   };
 
   // Handle seek to beginning
   const handleSeekToStart = () => {
-    timeline.seek(0);
+    seek(0);
   };
 
   // Handle seek to end
   const handleSeekToEnd = () => {
-    timeline.seek(timeline.duration);
+    seek(duration);
   };
 
   return (
@@ -90,7 +151,7 @@ export const Toolbar: React.FC = () => {
             aria-label="Seek to beginning"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M8 5v14l11-7z"/>
+              <path d="M6 6h2v12H6V6zm3.5 6l8.5 6V6l-8.5 6z"/>
             </svg>
           </Button>
           
@@ -98,9 +159,9 @@ export const Toolbar: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={handlePlayPause}
-            aria-label={timeline.isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
-            {timeline.isPlaying ? (
+            {isPlaying ? (
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
               </svg>
@@ -118,7 +179,7 @@ export const Toolbar: React.FC = () => {
             aria-label="Seek to end"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16 5v14l-11-7z"/>
+              <path d="M6 6l8.5 6L6 18V6zm10-1v14h2V5h-2z"/>
             </svg>
           </Button>
         </div>
@@ -168,7 +229,7 @@ export const Toolbar: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => timeline.setZoom(Math.max(0.1, timeline.zoom - 0.1))}
+            onClick={() => setZoom(Math.max(0.1, zoom - 0.1))}
             aria-label="Zoom out"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,13 +238,13 @@ export const Toolbar: React.FC = () => {
           </Button>
           
           <span className="text-sm text-gray-400 min-w-[60px] text-center">
-            {Math.round(timeline.zoom * 100)}%
+            {Math.round(zoom * 100)}%
           </span>
           
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => timeline.setZoom(Math.min(5.0, timeline.zoom + 0.1))}
+            onClick={() => setZoom(Math.min(5.0, zoom + 0.1))}
             aria-label="Zoom in"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

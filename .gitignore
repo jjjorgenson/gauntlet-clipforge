@@ -40,3 +40,7 @@ coverage/
 # Package manager lock files (keep package-lock.json)
 # yarn.lock
 # pnpm-lock.yaml
+
+# FFmpeg binaries (too large for GitHub, download separately)
+resources/bin/ffmpeg.exe
+resources/bin/ffprobe.exe

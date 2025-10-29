@@ -72,7 +72,7 @@ export class ExportService implements IExportService {
       
       if (clips.length === 1) {
         // Single clip - use fast path
-        await this.exportSingleClip(clips[0].sourceFile, config, (progress) => {
+        await this.exportSingleClip(clips[0], config, (progress) => {
           this.emitProgress(exportId, progress);
         });
       } else if (clips.length > 1) {
@@ -177,11 +177,16 @@ export class ExportService implements IExportService {
    * Export single clip (fast path)
    */
   async exportSingleClip(
-    clipPath: string,
+    clip: { sourceFile: string; trimIn: number; trimOut: number },
     config: ExportConfig,
     onProgress: (progress: ExportProgress) => void
   ): Promise<string> {
-    console.log(`🎬 Exporting single clip: ${clipPath}`);
+    console.log(`🎬 Exporting single clip: ${clip.sourceFile}`);
+    console.log(`✂️ Trim values:`, {
+      trimIn: clip.trimIn,
+      trimOut: clip.trimOut,
+      duration: clip.trimOut - clip.trimIn
+    });
     
     if (!ffmpegManager.isReady()) {
       throw new Error('FFmpeg not ready');
@@ -191,7 +196,7 @@ export class ExportService implements IExportService {
     const exportId = `single-${Date.now()}`;
     
     // Build FFmpeg command for single clip export
-    const args = this.buildSingleClipArgs(clipPath, config);
+    const args = this.buildSingleClipArgs(clip, config);
     
     console.log(`🔧 FFmpeg command: ${ffmpegPath} ${args.join(' ')}`);
     
@@ -412,11 +417,18 @@ export class ExportService implements IExportService {
   /**
    * Build FFmpeg arguments for single clip export
    */
-  private buildSingleClipArgs(clipPath: string, config: ExportConfig): string[] {
+  private buildSingleClipArgs(
+    clip: { sourceFile: string; trimIn: number; trimOut: number },
+    config: ExportConfig
+  ): string[] {
     const preset = this.getQualityPreset(config.quality);
+    const trimDuration = clip.trimOut - clip.trimIn;
     
     const args = [
-      '-i', clipPath,
+      '-i', clip.sourceFile,
+      // CRITICAL: -ss and -t MUST come AFTER -i but BEFORE encoding options
+      '-ss', clip.trimIn.toString(),      // Start at trim point
+      '-t', trimDuration.toString(),      // Duration of trim
       '-c:v', this.getCodecName(config.codec),
       '-b:v', config.bitrate || preset.bitrate,
       '-s', `${config.resolution.width}x${config.resolution.height}`,

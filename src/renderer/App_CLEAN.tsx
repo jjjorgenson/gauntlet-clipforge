@@ -8,7 +8,6 @@ import { MediaLibrary } from './components/media/MediaLibrary';
 import { VideoPreview } from './components/preview/VideoPreview';
 import { Timeline } from './components/timeline/Timeline';
 import { RecordDialog } from './components/recording/RecordDialog';
-import { Toolbar } from './components/layout/Toolbar';
 
 export const App: React.FC = () => {
   const [isRecordDialogOpen, setIsRecordDialogOpen] = useState(false);
@@ -20,16 +19,24 @@ export const App: React.FC = () => {
 
   return (
     <div className="h-screen bg-editor-bg text-white flex flex-col">
-      {/* Header with branding */}
-      <div className="bg-editor-panel border-b border-editor-border px-6 py-3">
-        <div className="flex items-center">
-          <h1 className="text-xl font-bold text-blue-400">🎬 ClipForge</h1>
-          <p className="text-xs text-gray-400 ml-3">Desktop Video Editor</p>
+      {/* Header */}
+      <div className="bg-editor-panel border-b border-editor-border px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-blue-400">🎬 ClipForge</h1>
+            <p className="text-sm text-gray-400">Desktop Video Editor</p>
+          </div>
+          {/* Quick Actions */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsRecordDialogOpen(true)}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg text-sm font-medium transition-all duration-150 ease-out shadow-md hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900"
+            >
+              🔴 Record
+            </button>
+          </div>
         </div>
       </div>
-
-      {/* Toolbar with actions */}
-      <Toolbar />
 
       {/* Main Content Area with balanced grid */}
       <div className="flex-1 grid grid-cols-12 gap-0 overflow-hidden">
