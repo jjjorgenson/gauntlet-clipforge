@@ -26,14 +26,17 @@ extraResources:
 # Platform-specific settings
 win:
   target:
-    - nsis
-  icon: resources/icon.ico
+    - target: nsis
+      arch:
+        - x64
+  # icon: resources/icon.ico  # No icon file yet
   forceCodeSigning: false  # Disable code signing (no certificate available)
+  signAndEditExecutable: false  # Skip signing entirely
   fileAssociations:
     - ext: clipforge
       name: ClipForge Project
       description: ClipForge Video Project File
-      icon: resources/icon.ico
+      # icon: resources/icon.ico  # No icon file yet
   
 mac:
   target:

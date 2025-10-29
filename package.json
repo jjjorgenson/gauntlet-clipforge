@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "electron:dev": "tsc -p tsconfig.main.json && cross-env NODE_ENV=development electron .",
-    "electron:build": "npm run build && tsc -p tsconfig.main.json && electron-builder"
+    "electron:build": "npm run build && tsc -p tsconfig.main.json && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "electron:build:dir": "npm run build && tsc -p tsconfig.main.json && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir"
   },
   "repository": {
     "type": "git",
