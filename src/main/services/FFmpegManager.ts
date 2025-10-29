@@ -175,8 +175,11 @@ export class FFmpegManager implements IFFmpegManager {
       console.log('🔍 Dev mode - Looking for FFmpeg at:', basePath);
       console.log('🔍 __dirname is:', __dirname);
     } else {
-      // Production: binaries in app resources/bin/
-      basePath = path.join(process.resourcesPath, 'bin');
+      // Production: binaries bundled in app.asar.unpacked/resources/bin/
+      // electron-builder puts extraResources at: app.asar.unpacked/resources/
+      basePath = path.join(process.resourcesPath, 'resources', 'bin');
+      console.log('🔍 Production mode - Looking for FFmpeg at:', basePath);
+      console.log('🔍 process.resourcesPath:', process.resourcesPath);
     }
 
     const extension = platform === 'win32' ? '.exe' : '';

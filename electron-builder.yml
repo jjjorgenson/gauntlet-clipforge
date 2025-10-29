@@ -14,18 +14,26 @@ files:
   - node_modules/**/*
   - package.json
 
-# Files to exclude
-extraFiles:
+# Extra files to bundle (FFmpeg binaries)
+extraResources:
   - from: resources/bin
     to: resources/bin
     filter:
-      - "**/*"
+      - "*.exe"
+      - "*.dll"
+      - "README.md"
 
 # Platform-specific settings
 win:
   target:
     - nsis
   icon: resources/icon.ico
+  forceCodeSigning: false  # Disable code signing (no certificate available)
+  fileAssociations:
+    - ext: clipforge
+      name: ClipForge Project
+      description: ClipForge Video Project File
+      icon: resources/icon.ico
   
 mac:
   target:
