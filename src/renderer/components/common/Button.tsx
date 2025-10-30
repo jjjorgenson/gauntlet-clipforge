@@ -15,11 +15,13 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
 export interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  onMouseDown?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   children: React.ReactNode;
   className?: string;
   type?: 'button' | 'submit' | 'reset';
+  title?: string;
   'aria-label'?: string;
 }
 
@@ -45,10 +47,12 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   onClick,
+  onMouseDown,
   disabled = false,
   children,
   className = '',
   type = 'button',
+  title,
   'aria-label': ariaLabel,
   ...props
 }) => {
@@ -65,8 +69,10 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       type={type}
       onClick={onClick}
+      onMouseDown={onMouseDown}
       disabled={disabled}
       className={buttonStyles}
+      title={title}
       aria-label={ariaLabel}
       {...props}
     >

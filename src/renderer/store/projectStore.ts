@@ -88,16 +88,16 @@ export const useProjectStore = create<ProjectStoreContract.Store>((set, get) => 
       };
       
       // Save via IPC
-      const savedPath = await window.api.project.save({
+      const response = await window.api.project.save({
         project: updatedProject,
         filePath: targetPath
       });
       
-      console.log('✅ Project saved to:', savedPath);
+      console.log('✅ Project saved to:', response.filePath);
       
       set({
         project: updatedProject,
-        currentFilePath: savedPath,
+        currentFilePath: response.filePath,
         isDirty: false,
         lastSavedAt: new Date()
       });
@@ -112,12 +112,13 @@ export const useProjectStore = create<ProjectStoreContract.Store>((set, get) => 
     try {
       // Load project via IPC
       console.log('Loading project from:', filePath);
-      const loadedProject = await window.api.project.load({ filePath });
+      const response = await window.api.project.load({ filePath });
+      const loadedProject = response.project;
       
       // Restore webcam settings to webcam store
       const webcamStore = useWebcamStore.getState();
-      if (loadedProject.webcamSettings) {
-        webcamStore.loadFromProject(loadedProject.webcamSettings);
+      if ((loadedProject as any).webcamSettings) {
+        webcamStore.loadFromProject((loadedProject as any).webcamSettings);
         console.log('✅ Restored webcam settings from project');
       } else {
         // No webcam settings in project - use defaults

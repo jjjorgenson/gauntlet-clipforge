@@ -38,7 +38,7 @@ export const ResizableSplitter: React.FC<ResizableSplitterProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const splitterRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
 
   // Calculate splitter handle size and cursor
   const handleSize = orientation === 'horizontal' ? 'w-1' : 'h-1';
