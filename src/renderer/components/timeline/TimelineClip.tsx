@@ -35,9 +35,12 @@ interface TimelineClipProps {
   y: number;
   width: number;
   zoom: number;
+  currentTime: number;
+  canvasRef: React.RefObject<HTMLDivElement | null>;
   onSelect: (clipId: string) => void;
-  onDragStart: (clipId: string, dragType: 'clip' | 'trim-left' | 'trim-right') => void;
+  onDragStart: (clipId: string, dragType: 'clip' | 'trim-left' | 'trim-right', mouseX: number, mouseY: number) => void;
   onTrim?: (clipId: string) => void;
+  onSplit?: (clipId: string) => void;
 }
 
 export const TimelineClip: React.FC<TimelineClipProps> = ({
@@ -49,9 +52,12 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
   y,
   width,
   zoom,
+  currentTime,
+  canvasRef,
   onSelect,
   onDragStart,
-  onTrim
+  onTrim,
+  onSplit
 }) => {
   // Calculate clip dimensions
   const clipWidth = Math.max(width, 20); // Minimum width for visibility
@@ -59,10 +65,22 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
 
   // Handle mouse down
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Prevent Timeline's handler, use callback instead
     
-    const rect = e.currentTarget.getBoundingClientRect();
-    const localX = e.clientX - rect.left;
+    // Get mouse position relative to the clip element (for hit detection)
+    const clipRect = e.currentTarget.getBoundingClientRect();
+    const localX = e.clientX - clipRect.left;
+    const localY = e.clientY - clipRect.top;
+    
+    // Get mouse position relative to the timeline canvas container using the ref
+    if (!canvasRef.current) {
+      console.error('❌ TimelineClip: canvasRef is not available');
+      return;
+    }
+    
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const mouseXInCanvas = e.clientX - canvasRect.left;
+    const mouseYInCanvas = e.clientY - canvasRect.top;
     
     // Determine hit region
     let hitDragType: 'clip' | 'trim-left' | 'trim-right' = 'clip';
@@ -74,8 +92,21 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
       }
     }
     
+    console.log('🎬 TimelineClip mouseDown:', {
+      localX: localX.toFixed(1) + 'px',
+      localY: localY.toFixed(1) + 'px',
+      clipX: x.toFixed(1) + 'px',
+      clipY: y.toFixed(1) + 'px',
+      mouseXInCanvas: mouseXInCanvas.toFixed(1) + 'px',
+      mouseYInCanvas: mouseYInCanvas.toFixed(1) + 'px',
+      clientY: e.clientY.toFixed(1) + 'px',
+      canvasTop: canvasRect.top.toFixed(1) + 'px',
+      clipTop: clipRect.top.toFixed(1) + 'px',
+      hitRegion: hitDragType
+    });
+    
     onSelect(clip.id);
-    onDragStart(clip.id, hitDragType);
+    onDragStart(clip.id, hitDragType, mouseXInCanvas, mouseYInCanvas); // Pass mouse position in timeline canvas coordinates
   };
 
   // Handle right-click context menu
@@ -83,7 +114,35 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
     e.preventDefault();
     e.stopPropagation();
     
+    // For now, we'll use a simple approach:
+    // - If playhead is within clip, show option to split
+    // - Always show option to trim
+    const isPlayheadInClip = currentTime > clip.startTime + 0.1 && currentTime < clip.endTime - 0.1;
+    
+    // Create simple context menu (could be enhanced with a proper menu component)
+    const menuItems = [];
+    
+    if (isPlayheadInClip && onSplit) {
+      menuItems.push('Split at Playhead (S)');
+    }
+    
     if (onTrim) {
+      menuItems.push('Trim Clip...');
+    }
+    
+    menuItems.push('Delete Clip');
+    
+    // For now, just trigger the first action
+    // In a real implementation, you'd show a proper context menu
+    if (isPlayheadInClip && onSplit) {
+      // Show alert asking which action
+      const choice = window.confirm('Split clip at playhead? (Cancel to open Trim dialog)');
+      if (choice) {
+        onSplit(clip.id);
+      } else if (onTrim) {
+        onTrim(clip.id);
+      }
+    } else if (onTrim) {
       onTrim(clip.id);
     }
   };
@@ -136,7 +195,15 @@ export const TimelineClip: React.FC<TimelineClipProps> = ({
         justifyContent: 'space-between',
         padding: '4px',
         boxSizing: 'border-box',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        // Enhanced drag feedback
+        opacity: isDragging ? 0.6 : 1,
+        transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+        boxShadow: isDragging 
+          ? '0 8px 16px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(59, 130, 246, 0.5)' 
+          : 'none',
+        transition: isDragging ? 'none' : 'all 0.15s ease',
+        zIndex: isDragging ? 100 : 1
       }}
     >
       {/* Left trim handle */}

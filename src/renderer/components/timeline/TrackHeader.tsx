@@ -73,7 +73,7 @@ export const TrackHeader: React.FC<TrackHeaderProps> = ({
   return (
     <div
       className={`track-header flex items-center justify-between px-2 py-1 border-r border-gray-600 bg-gray-800 hover:bg-gray-750 cursor-pointer select-none ${className}`}
-      style={{ height }}
+      style={{ height, flexShrink: 0 }}
       onClick={() => onTrackClick(track.id)}
     >
       {/* Track Info */}

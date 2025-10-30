@@ -200,6 +200,7 @@ export const PlaybackControls: React.FC<VideoPreviewComponentProps.PlaybackContr
           max={duration}
           step={0.1}
           onChange={handleSeekChange}
+          onEnd={handleSeekEnd}
           className="flex-1"
         />
         <span className="text-xs text-gray-400 w-12 text-left">

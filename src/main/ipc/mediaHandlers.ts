@@ -5,11 +5,14 @@
  * Bridges renderer requests to MediaService implementation.
  */
 
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, app } from 'electron';
 import { IPC_CHANNELS } from '../../shared/contracts/ipc-channels';
 import { MediaIPC } from '../../shared/contracts/ipc';
 import { mediaService } from '../services/MediaService';
 import { ffmpegManager } from '../services/FFmpegManager';
+import * as fs from 'fs';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Register all media-related IPC handlers
@@ -161,6 +164,42 @@ export function registerMediaHandlers(): void {
     } catch (error) {
       console.error('❌ Thumbnail generation failed:', error);
       throw new Error(`Thumbnail generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+
+  // Save Dropped File Handler
+  ipcMain.handle(IPC_CHANNELS.MEDIA_SAVE_DROPPED_FILE, async (event, req: MediaIPC.SaveDroppedFileRequest): Promise<MediaIPC.SaveDroppedFileResponse> => {
+    try {
+      const { filename, buffer, mimeType } = req;
+      
+      console.log('📥 Saving dropped file:', {
+        filename,
+        size: buffer.length,
+        mimeType,
+      });
+      
+      // Create temp directory for dropped files
+      const tempDir = path.join(app.getPath('temp'), 'clipforge-drops');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+        console.log('📁 Created temp directory:', tempDir);
+      }
+      
+      // Generate unique filename to prevent conflicts
+      const ext = path.extname(filename);
+      const basename = path.basename(filename, ext);
+      const uniqueName = `${basename}-${uuidv4().slice(0, 8)}${ext}`;
+      const filePath = path.join(tempDir, uniqueName);
+      
+      // Write buffer to file
+      fs.writeFileSync(filePath, Buffer.from(buffer));
+      
+      console.log('✅ Saved dropped file to:', filePath);
+      
+      return { filePath };
+    } catch (error) {
+      console.error('❌ Failed to save dropped file:', error);
+      throw new Error(`Failed to save dropped file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
 

@@ -13,7 +13,7 @@ export interface DialogProps {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '6xl' | '7xl';
   className?: string;
 }
 
@@ -23,7 +23,10 @@ const maxWidthStyles: Record<NonNullable<DialogProps['maxWidth']>, string> = {
   md: 'max-w-md',
   lg: 'max-w-lg',
   xl: 'max-w-xl',
-  '2xl': 'max-w-2xl'
+  '2xl': 'max-w-2xl',
+  '4xl': 'max-w-4xl',
+  '6xl': 'max-w-6xl',
+  '7xl': 'max-w-7xl'
 };
 
 export const Dialog: React.FC<DialogProps> = ({
@@ -76,11 +79,12 @@ export const Dialog: React.FC<DialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ zIndex: 9999 }}
       onClick={handleOverlayClick}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black bg-opacity-50 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-black bg-opacity-75 transition-opacity duration-300" />
       
       {/* Dialog */}
       <div

@@ -249,7 +249,15 @@ export class ExportService implements IExportService {
    * Export timeline (complex path)
    */
   async exportTimeline(
-    clips: Array<{ sourceFile: string; trimIn: number; trimOut: number }>,
+    clips: Array<{ 
+      sourceFile: string; 
+      trimIn: number; 
+      trimOut: number;
+      startTime: number;
+      endTime: number;
+      trackId: string;
+      trackNumber: number;
+    }>,
     config: ExportConfig,
     onProgress: (progress: ExportProgress) => void
   ): Promise<string> {
@@ -260,55 +268,229 @@ export class ExportService implements IExportService {
     }
 
     const ffmpegPath = ffmpegManager.getFFmpegPath();
-    const exportId = `timeline-${Date.now()}`;
+    const os = require('os');
     
-    // Build FFmpeg command for timeline export
-    const args = this.buildTimelineArgs(clips, config);
+    // Step 1: Build timeline events (resolve overlaps and gaps)
+    const events = this.buildTimelineEvents(clips);
     
-    console.log(`🔧 FFmpeg command: ${ffmpegPath} ${args.join(' ')}`);
+    if (events.length === 0) {
+      throw new Error('No timeline events to export');
+    }
+    
+    // Step 2: Create temp directory for segments
+    const tempDir = path.join(os.tmpdir(), `clipforge-export-${Date.now()}`);
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    console.log(`📁 Temp directory: ${tempDir}`);
+    
+    try {
+      // Step 3: Export each segment (clips and gaps)
+      const segmentFiles: string[] = [];
+      let totalProgress = 0;
+      const progressPerSegment = 80 / events.length; // Reserve 20% for final concatenation
+      
+      for (let i = 0; i < events.length; i++) {
+        const event = events[i];
+        const segmentFile = path.join(tempDir, `segment-${i.toString().padStart(3, '0')}.mp4`);
+        
+        if (event.type === 'clip') {
+          // Export clip segment with trim
+          console.log(`🎬 Exporting segment ${i + 1}/${events.length}: Clip (${event.duration.toFixed(2)}s)`);
+          await this.exportClipSegment(event, segmentFile, config);
+        } else if (event.type === 'gap') {
+          // Create black frame for gap
+          console.log(`⬛ Creating segment ${i + 1}/${events.length}: Gap (${event.duration.toFixed(2)}s)`);
+          await this.createBlackFrameSegment(event.duration, segmentFile, config);
+        }
+        
+        segmentFiles.push(segmentFile);
+        
+        // Update progress
+        totalProgress += progressPerSegment;
+        onProgress({
+          percent: Math.min(totalProgress, 80),
+          currentFrame: Math.floor(event.endTime * config.fps),
+          totalFrames: Math.floor(events[events.length - 1].endTime * config.fps),
+          fps: config.fps,
+          eta: Math.floor((100 - totalProgress) / progressPerSegment * 2) // Rough estimate
+        });
+      }
+      
+      // Step 4: Create concat file
+      const concatFile = path.join(tempDir, 'concat.txt');
+      const concatContent = segmentFiles.map(f => `file '${f}'`).join('\n');
+      fs.writeFileSync(concatFile, concatContent);
+      console.log(`📝 Concat file created with ${segmentFiles.length} segments`);
+      
+      // Step 5: Concatenate all segments
+      console.log(`🔗 Concatenating ${segmentFiles.length} segments...`);
+      await this.concatenateSegments(concatFile, config.outputPath, config);
+      
+      // Final progress
+      const finalEvent = events[events.length - 1];
+      onProgress({
+        percent: 100,
+        currentFrame: Math.floor(finalEvent.endTime * config.fps),
+        totalFrames: Math.floor(finalEvent.endTime * config.fps),
+        fps: config.fps,
+        eta: 0
+      });
+      
+      console.log(`✅ Timeline export completed: ${config.outputPath}`);
+      return config.outputPath;
+      
+    } finally {
+      // Step 6: Cleanup temp files
+      try {
+        if (fs.existsSync(tempDir)) {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          console.log(`🧹 Cleaned up temp directory: ${tempDir}`);
+        }
+      } catch (cleanupError) {
+        console.warn(`⚠️  Failed to cleanup temp directory: ${cleanupError}`);
+      }
+    }
+  }
+
+  /**
+   * Export a single clip segment (part of timeline export)
+   */
+  private async exportClipSegment(
+    event: { 
+      sourceFile?: string; 
+      trimIn?: number; 
+      trimOut?: number; 
+      duration: number 
+    },
+    outputPath: string,
+    config: ExportConfig
+  ): Promise<void> {
+    const ffmpegPath = ffmpegManager.getFFmpegPath();
+    const preset = this.getQualityPreset(config.quality);
+    
+    const trimDuration = (event.trimOut || 0) - (event.trimIn || 0);
+    
+    const args = [
+      '-i', event.sourceFile!,
+      '-ss', (event.trimIn || 0).toString(),
+      '-t', trimDuration.toString(),
+      '-c:v', this.getCodecName(config.codec),
+      '-b:v', config.bitrate || preset.bitrate,
+      '-s', `${config.resolution.width}x${config.resolution.height}`,
+      '-r', config.fps.toString(),
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-y',
+      outputPath
+    ];
     
     return new Promise((resolve, reject) => {
       const process = spawn(ffmpegPath, args);
-      
-      // Track this export
-      this.activeExports.set(exportId, {
-        id: exportId,
-        process,
-        config,
-        startTime: Date.now(),
-        cancelled: false
-      });
-
       let stderr = '';
       
       process.stderr.on('data', (data) => {
         stderr += data.toString();
-        
-        // Parse progress from FFmpeg stderr
-        const progress = this.parseFFmpegProgress(stderr, config);
-        if (progress) {
-          onProgress(progress);
-        }
       });
-
+      
       process.on('close', (code) => {
-        this.activeExports.delete(exportId);
-        
         if (code === 0) {
-          console.log(`✅ Timeline export completed: ${config.outputPath}`);
-          resolve(config.outputPath);
+          resolve();
         } else {
-          const error = new Error(`FFmpeg process exited with code ${code}`);
-          console.error(`❌ Timeline export failed:`, error);
-          reject(error);
+          reject(new Error(`Segment export failed with code ${code}: ${stderr}`));
         }
       });
+      
+      process.on('error', reject);
+    });
+  }
 
-      process.on('error', (error) => {
-        this.activeExports.delete(exportId);
-        console.error(`❌ FFmpeg process error:`, error);
-        reject(error);
+  /**
+   * Create a black frame video segment for gaps
+   */
+  private async createBlackFrameSegment(
+    duration: number,
+    outputPath: string,
+    config: ExportConfig
+  ): Promise<void> {
+    const ffmpegPath = ffmpegManager.getFFmpegPath();
+    const preset = this.getQualityPreset(config.quality);
+    
+    const args = [
+      '-f', 'lavfi',
+      '-i', `color=c=black:s=${config.resolution.width}x${config.resolution.height}:d=${duration}:r=${config.fps}`,
+      '-f', 'lavfi',
+      '-i', 'anullsrc=channel_layout=stereo:sample_rate=48000',
+      '-t', duration.toString(),
+      '-c:v', this.getCodecName(config.codec),
+      '-b:v', config.bitrate || preset.bitrate,
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-shortest',
+      '-y',
+      outputPath
+    ];
+    
+    return new Promise((resolve, reject) => {
+      const process = spawn(ffmpegPath, args);
+      let stderr = '';
+      
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
       });
+      
+      process.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Black frame creation failed with code ${code}: ${stderr}`));
+        }
+      });
+      
+      process.on('error', reject);
+    });
+  }
+
+  /**
+   * Concatenate multiple segment files into final output
+   */
+  private async concatenateSegments(
+    concatFile: string,
+    outputPath: string,
+    config: ExportConfig
+  ): Promise<void> {
+    const ffmpegPath = ffmpegManager.getFFmpegPath();
+    const preset = this.getQualityPreset(config.quality);
+    
+    const args = [
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', concatFile,
+      '-c:v', this.getCodecName(config.codec),
+      '-b:v', config.bitrate || preset.bitrate,
+      '-c:a', 'aac',
+      '-b:a', '192k',
+      '-y',
+      outputPath
+    ];
+    
+    return new Promise((resolve, reject) => {
+      const process = spawn(ffmpegPath, args);
+      let stderr = '';
+      
+      process.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      process.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Concatenation failed with code ${code}: ${stderr}`));
+        }
+      });
+      
+      process.on('error', reject);
     });
   }
 
@@ -445,6 +627,134 @@ export class ExportService implements IExportService {
   /**
    * Build FFmpeg arguments for timeline export (concatenation)
    */
+  /**
+   * Build timeline events with gap and overlap resolution
+   */
+  private buildTimelineEvents(clips: Array<{
+    sourceFile: string;
+    trimIn: number;
+    trimOut: number;
+    startTime: number;
+    endTime: number;
+    trackId: string;
+    trackNumber: number;
+  }>): Array<{
+    type: 'clip' | 'gap';
+    startTime: number;
+    endTime: number;
+    duration: number;
+    sourceFile?: string;
+    trimIn?: number;
+    trimOut?: number;
+    trackId?: string;
+  }> {
+    if (clips.length === 0) return [];
+    
+    // Sort clips by startTime, then by trackNumber (higher track wins overlaps)
+    const sortedClips = [...clips].sort((a, b) => {
+      if (a.startTime !== b.startTime) {
+        return a.startTime - b.startTime;
+      }
+      // If same startTime, higher track number comes first (to handle overlaps)
+      return b.trackNumber - a.trackNumber;
+    });
+    
+    const events: Array<{
+      type: 'clip' | 'gap';
+      startTime: number;
+      endTime: number;
+      duration: number;
+      sourceFile?: string;
+      trimIn?: number;
+      trimOut?: number;
+      trackId?: string;
+    }> = [];
+    
+    let currentTime = 0;
+    const resolvedClips: typeof sortedClips = [];
+    
+    // First pass: Resolve overlaps (higher track wins)
+    for (const clip of sortedClips) {
+      let clipStart = clip.startTime;
+      let clipEnd = clip.endTime;
+      let shouldAdd = true;
+      
+      // Check if this clip overlaps with any already resolved clips
+      for (const resolved of resolvedClips) {
+        // Check for overlap
+        if (clipStart < resolved.endTime && clipEnd > resolved.startTime) {
+          // Overlap detected
+          if (clip.trackNumber > resolved.trackNumber) {
+            // Current clip wins - it will be added
+            console.log(`⚠️  Overlap: Track ${clip.trackNumber} (${clip.trackId}) wins over Track ${resolved.trackNumber} (${resolved.trackId})`);
+          } else {
+            // Resolved clip wins - skip or truncate current clip
+            if (clipStart >= resolved.startTime && clipEnd <= resolved.endTime) {
+              // Current clip is completely covered
+              shouldAdd = false;
+              console.log(`⚠️  Overlap: Track ${resolved.trackNumber} completely covers Track ${clip.trackNumber} - skipping`);
+              break;
+            } else if (clipStart < resolved.startTime && clipEnd > resolved.startTime) {
+              // Truncate current clip end
+              clipEnd = resolved.startTime;
+              console.log(`⚠️  Overlap: Truncating Track ${clip.trackNumber} at ${clipEnd}s`);
+            } else if (clipStart < resolved.endTime && clipEnd > resolved.endTime) {
+              // Truncate current clip start
+              clipStart = resolved.endTime;
+              console.log(`⚠️  Overlap: Truncating Track ${clip.trackNumber} start to ${clipStart}s`);
+            }
+          }
+        }
+      }
+      
+      if (shouldAdd && clipEnd > clipStart) {
+        const adjustedClip = {
+          ...clip,
+          startTime: clipStart,
+          endTime: clipEnd
+        };
+        resolvedClips.push(adjustedClip);
+      }
+    }
+    
+    // Sort resolved clips by startTime
+    resolvedClips.sort((a, b) => a.startTime - b.startTime);
+    
+    // Second pass: Build events with gaps
+    for (const clip of resolvedClips) {
+      // Check for gap before this clip
+      if (clip.startTime > currentTime) {
+        const gapDuration = clip.startTime - currentTime;
+        events.push({
+          type: 'gap',
+          startTime: currentTime,
+          endTime: clip.startTime,
+          duration: gapDuration
+        });
+        console.log(`⬛ Gap: ${gapDuration.toFixed(2)}s from ${currentTime.toFixed(2)}s to ${clip.startTime.toFixed(2)}s`);
+      }
+      
+      // Add clip event
+      const clipDuration = clip.endTime - clip.startTime;
+      events.push({
+        type: 'clip',
+        startTime: clip.startTime,
+        endTime: clip.endTime,
+        duration: clipDuration,
+        sourceFile: clip.sourceFile,
+        trimIn: clip.trimIn,
+        trimOut: clip.trimOut,
+        trackId: clip.trackId
+      });
+      console.log(`🎬 Clip: ${clipDuration.toFixed(2)}s from ${clip.startTime.toFixed(2)}s to ${clip.endTime.toFixed(2)}s (Track: ${clip.trackId})`);
+      
+      currentTime = clip.endTime;
+    }
+    
+    console.log(`📊 Timeline events: ${events.length} (${events.filter(e => e.type === 'clip').length} clips, ${events.filter(e => e.type === 'gap').length} gaps)`);
+    return events;
+  }
+
   private buildTimelineArgs(
     clips: Array<{ sourceFile: string; trimIn: number; trimOut: number }>,
     config: ExportConfig
@@ -580,21 +890,43 @@ export class ExportService implements IExportService {
     sourceFile: string;
     trimIn: number;
     trimOut: number;
+    startTime: number;
+    endTime: number;
+    trackId: string;
+    trackNumber: number;
   }> {
-    const clips: Array<{ sourceFile: string; trimIn: number; trimOut: number }> = [];
+    const clips: Array<{
+      sourceFile: string;
+      trimIn: number;
+      trimOut: number;
+      startTime: number;
+      endTime: number;
+      trackId: string;
+      trackNumber: number;
+    }> = [];
     
     for (const track of timeline.tracks) {
       if (track.clips && Array.isArray(track.clips)) {
+        // Extract track number from trackId (e.g., "track-1" -> 1)
+        const trackNumber = parseInt(track.id.replace(/\D/g, '')) || 0;
+        
         for (const clip of track.clips) {
+          const duration = (clip.trimOut - clip.trimIn) || clip.metadata?.duration || 0;
+          
           clips.push({
             sourceFile: clip.sourceFile,
             trimIn: clip.trimIn || 0,
-            trimOut: clip.trimOut || clip.metadata?.duration || 0
+            trimOut: clip.trimOut || clip.metadata?.duration || 0,
+            startTime: clip.startTime || 0,
+            endTime: (clip.startTime || 0) + duration,
+            trackId: track.id,
+            trackNumber: trackNumber
           });
         }
       }
     }
     
+    console.log(`📊 Extracted ${clips.length} clips from ${timeline.tracks.length} tracks`);
     return clips;
   }
 

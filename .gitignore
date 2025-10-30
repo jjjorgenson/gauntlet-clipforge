@@ -20,6 +20,7 @@ npm-debug.log*
 # IDE
 .bmad-core/
 .cursor/
+.docs/
 *.swp
 *.swo
 *~

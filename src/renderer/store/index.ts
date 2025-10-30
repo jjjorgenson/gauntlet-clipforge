@@ -2,7 +2,7 @@
  * Combined Store Hook - All Stores in One
  * 
  * Exports all stores as a single hook for easy consumption.
- * Usage: const { timeline, media, recording, export, project, app } = useStore();
+ * Usage: const { timeline, media, recording, export, project, app, webcam } = useStore();
  */
 
 import { useTimelineStore } from './timelineStore';
@@ -11,6 +11,7 @@ import { useRecordingStore } from './recordingStore';
 import { useExportStore } from './exportStore';
 import { useProjectStore } from './projectStore';
 import { useAppStore } from './appStore';
+import { useWebcamStore } from './webcamStore';
 
 // Combined store hook
 export const useStore = () => {
@@ -20,6 +21,7 @@ export const useStore = () => {
   const exportStore = useExportStore();
   const project = useProjectStore();
   const app = useAppStore();
+  const webcam = useWebcamStore();
 
   return {
     timeline,
@@ -27,7 +29,8 @@ export const useStore = () => {
     recording,
     export: exportStore, // Renamed to avoid conflict with JS keyword
     project,
-    app
+    app,
+    webcam
   };
 };
 
@@ -38,7 +41,8 @@ export {
   useRecordingStore,
   useExportStore,
   useProjectStore,
-  useAppStore
+  useAppStore,
+  useWebcamStore
 };
 
 // Type exports for TypeScript
@@ -48,5 +52,6 @@ export type {
   RecordingStoreContract,
   ExportStoreContract,
   ProjectStoreContract,
-  AppStoreContract
+  AppStoreContract,
+  WebcamStoreContract
 } from '../../shared/contracts/stores';

@@ -11,6 +11,7 @@ import {
   ProjectStoreContract
 } from '../../shared/contracts/stores';
 import { Project } from '../../shared/types';
+import { useWebcamStore } from './webcamStore';
 
 // Default project state
 const defaultState: ProjectStoreContract.State = {
@@ -77,19 +78,26 @@ export const useProjectStore = create<ProjectStoreContract.Store>((set, get) => 
     }
 
     try {
-      // Update project metadata
-      const updatedProject = updateProjectMetadata(state.project);
+      // Get webcam settings from webcam store
+      const webcamSettings = useWebcamStore.getState().getSettings();
       
-      // Mock save operation - in real implementation, this would use IPC
-      console.log('Saving project to:', targetPath);
-      console.log('Project data:', JSON.stringify(updatedProject, null, 2));
+      // Update project metadata and include webcam settings
+      const updatedProject = {
+        ...updateProjectMetadata(state.project),
+        webcamSettings // Add webcam settings to project
+      };
       
-      // Simulate save delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Save via IPC
+      const savedPath = await window.api.project.save({
+        project: updatedProject,
+        filePath: targetPath
+      });
+      
+      console.log('✅ Project saved to:', savedPath);
       
       set({
         project: updatedProject,
-        currentFilePath: targetPath,
+        currentFilePath: savedPath,
         isDirty: false,
         lastSavedAt: new Date()
       });
@@ -102,45 +110,33 @@ export const useProjectStore = create<ProjectStoreContract.Store>((set, get) => 
 
   loadProject: async (filePath: string) => {
     try {
-      set({});
-      
-      // Mock load operation - in real implementation, this would use IPC
+      // Load project via IPC
       console.log('Loading project from:', filePath);
+      const loadedProject = await window.api.project.load({ filePath });
       
-      // Simulate load delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock project data - in real implementation, this would come from file
-      const mockProject: Project = {
-        id: uuidv4(),
-        name: 'Loaded Project',
-        version: '1.0.0',
-        timeline: {
-          tracks: [],
-          duration: 0
-        },
-        settings: {
-          fps: 30,
-          resolution: { width: 1920, height: 1080 },
-          audioSampleRate: 48000
-        },
-        metadata: {
-          created: new Date(Date.now() - 86400000), // 1 day ago
-          modified: new Date()
-        }
-      };
+      // Restore webcam settings to webcam store
+      const webcamStore = useWebcamStore.getState();
+      if (loadedProject.webcamSettings) {
+        webcamStore.loadFromProject(loadedProject.webcamSettings);
+        console.log('✅ Restored webcam settings from project');
+      } else {
+        // No webcam settings in project - use defaults
+        webcamStore.loadFromProject(undefined);
+        console.log('ℹ️ No webcam settings in project, using defaults');
+      }
       
       set({
-        project: mockProject,
+        project: loadedProject,
         currentFilePath: filePath,
         isDirty: false,
-        lastSavedAt: new Date(),
-        
+        lastSavedAt: new Date()
       });
+      
+      console.log('✅ Project loaded successfully');
       
     } catch (error) {
       console.error('Failed to load project:', error);
-      set({});
+      set(defaultState);
       throw error;
     }
   },

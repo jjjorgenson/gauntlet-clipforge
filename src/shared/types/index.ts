@@ -69,6 +69,12 @@ export interface Project {
   };
   settings: ProjectSettings;
   metadata: ProjectMetadata;
+  webcamSettings?: {           // Webcam overlay configuration
+    enabled: boolean;
+    position: { x: number; y: number }; // Percentage (0-100)
+    size: { width: number; height: number }; // Percentage (0-100)
+    deviceId?: string;
+  };
 }
 
 // ============================================================================

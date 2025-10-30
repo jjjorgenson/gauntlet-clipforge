@@ -8,12 +8,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { VideoPreviewComponentProps } from '../../../shared/contracts/components';
 import { useTimelineStore } from '../../store/timelineStore';
+import { useWebcamStore } from '../../store/webcamStore';
 import { usePlayback } from '../../hooks/usePlayback';
 import { VideoPlayer } from './VideoPlayer';
 import { PlaybackControls } from './PlaybackControls';
+import { WebcamOverlay } from './WebcamOverlay';
 
-export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = ({ 
-  className = '' 
+export interface VideoPreviewProps extends VideoPreviewComponentProps.VideoPreview {
+  recordingStream?: MediaStream | null;
+}
+
+export const VideoPreview: React.FC<VideoPreviewProps> = ({ 
+  className = '',
+  recordingStream = null
 }) => {
   const {
     tracks,
@@ -32,6 +39,18 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
   const [volume, setVolume] = useState(1.0);
   const [currentClip, setCurrentClip] = useState<any>(null);
   const videoRef = useRef<any>(null);
+  const recordingVideoRef = useRef<HTMLVideoElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Webcam controls
+  const { isEnabled: webcamEnabled, enableWebcam, disableWebcam } = useWebcamStore();
+
+  // Set recording stream as video source when available
+  useEffect(() => {
+    if (recordingVideoRef.current && recordingStream) {
+      recordingVideoRef.current.srcObject = recordingStream;
+    }
+  }, [recordingStream]);
 
   // Find the current clip based on timeline position
   useEffect(() => {
@@ -73,7 +92,8 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
     
     const timelineTime = currentClip.startTime + time;
     
-    if (Math.abs(timelineTime - currentTime) > 0.1) {
+    // Update timeline time more frequently for smooth playback (reduced threshold)
+    if (Math.abs(timelineTime - currentTime) > 0.016) {
       useTimelineStore.setState({ currentTime: timelineTime });
     }
   };
@@ -125,35 +145,112 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
     }
   };
 
+  // Handle webcam toggle
+  const handleWebcamToggle = async () => {
+    if (webcamEnabled) {
+      disableWebcam();
+    } else {
+      try {
+        await enableWebcam();
+      } catch (error) {
+        console.error('Failed to enable webcam:', error);
+        alert('Failed to enable webcam. Please check permissions.');
+      }
+    }
+  };
+
+  // Helper function to calculate z-index based on track index
+  const getTrackZIndex = (trackIndex: number): number => {
+    return 100 - (trackIndex * 10);
+    // Track 0 (Track 1) = z-index 100 (top)
+    // Track 1 (Track 2) = z-index 90
+    // Track 2 (Track 3) = z-index 80
+    // etc.
+  };
+
   // Calculate total duration
   const totalDuration = duration;
 
   return (
     <div className={`video-preview flex flex-col h-full ${className}`}>
       {/* Video Player Container with proper centering - min-h-0 allows it to shrink */}
-      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-full" style={{ aspectRatio: '16/9' }}>
-          <div className="relative w-full h-full bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-lg overflow-hidden shadow-2xl">
-            {currentClip ? (
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4 overflow-hidden">
+        <div 
+          className="max-w-full" 
+          style={{ 
+            aspectRatio: '16/9',
+            width: '100%',
+            maxHeight: '100%',
+            height: 'auto'
+          }}
+        >
+          <div 
+            ref={previewContainerRef}
+            className="relative w-full h-full bg-gradient-to-br from-gray-900 via-black to-gray-900 rounded-lg overflow-hidden shadow-2xl"
+          >
+            {/* Show recording stream preview if available */}
+            {recordingStream ? (
               <>
-                {(() => {
-                  // Calculate video time relative to clip start, clamped to valid range
-                  const videoTime = Math.max(0, currentTime - currentClip.startTime);
-                  const clipDuration = currentClip.endTime - currentClip.startTime;
-                  const clampedVideoTime = Math.min(videoTime, clipDuration);
-                  
-                  return (
-                    <VideoPlayer
-                      ref={videoRef}
-                      clip={currentClip}
-                      currentTime={clampedVideoTime}
-                      isPlaying={isPlaying}
-                      volume={volume}
-                      onTimeUpdate={handleTimeUpdate}
-                      onEnded={handleEnded}
-                    />
+                {/* LIVE PREVIEW Banner */}
+                <div className="absolute top-4 left-4 z-[200] bg-red-600 px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
+                  <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
+                  <span className="text-white font-semibold text-sm">LIVE PREVIEW - Recording Source Selected</span>
+                </div>
+
+                {/* Recording Stream Video */}
+                <video
+                  ref={recordingVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full h-full object-contain"
+                />
+
+                {/* Webcam Overlay */}
+                <WebcamOverlay containerRef={previewContainerRef} />
+              </>
+            ) : tracks.length > 0 ? (
+              /* Timeline clips preview */
+              <>
+                {tracks.map((track, trackIndex) => {
+                  // Find clip at current time for this track
+                  const clipAtTime = track.clips.find(clip => 
+                    currentTime >= clip.startTime - 0.05 && currentTime <= clip.endTime + 0.05
                   );
-                })()}
+
+                  if (!clipAtTime) return null;
+
+                  const videoTime = Math.max(0, currentTime - clipAtTime.startTime);
+                  const clipDuration = clipAtTime.endTime - clipAtTime.startTime;
+                  const clampedVideoTime = Math.min(videoTime, clipDuration);
+
+                  return (
+                    <div 
+                      key={`${track.id}-${clipAtTime.id}`}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        zIndex: getTrackZIndex(trackIndex)
+                      }}
+                    >
+                      <VideoPlayer
+                        ref={trackIndex === 0 ? videoRef : undefined}
+                        clip={clipAtTime}
+                        currentTime={clampedVideoTime}
+                        isPlaying={isPlaying}
+                        volume={track.muted ? 0 : volume}
+                        onTimeUpdate={trackIndex === 0 ? handleTimeUpdate : () => {}}
+                        onEnded={trackIndex === 0 ? handleEnded : () => {}}
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* Webcam Overlay */}
+                <WebcamOverlay containerRef={previewContainerRef} />
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -170,6 +267,26 @@ export const VideoPreview: React.FC<VideoPreviewComponentProps.VideoPreview> = (
 
       {/* Playback Controls - always visible at bottom */}
       <div className="flex-shrink-0">
+        {/* Webcam Toggle Button (above playback controls) */}
+        <div className="px-4 pb-2 flex justify-end">
+          <button
+            onClick={handleWebcamToggle}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              webcamEnabled
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+            }`}
+            title={webcamEnabled ? 'Disable webcam overlay' : 'Enable webcam overlay'}
+          >
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+              </svg>
+              <span>{webcamEnabled ? 'Webcam On' : 'Webcam Off'}</span>
+            </div>
+          </button>
+        </div>
+        
         <PlaybackControls
           isPlaying={isPlaying}
           currentTime={currentTime}

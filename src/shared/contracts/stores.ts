@@ -30,6 +30,10 @@ export namespace TimelineStoreContract {
     zoom: number; // 0.1 to 5.0
     scrollLeft: number; // horizontal scroll position (pixels)
     
+    // Snapping
+    isGridSnapEnabled: boolean; // snap to grid intervals
+    gridSnapSize: number; // grid interval in seconds (default: 1.0)
+    
     // Selection state
     selectedClipIds: string[];
     selectedTrackId: string | null;
@@ -67,6 +71,7 @@ export namespace TimelineStoreContract {
     // UI operations
     setZoom: (zoom: number) => void;
     setScrollLeft: (scrollLeft: number) => void;
+    toggleGridSnap: () => void;
     
     // Selection operations
     selectClip: (clipId: string, multiSelect?: boolean) => void;
@@ -261,6 +266,63 @@ export namespace ProjectStoreContract {
     markDirty: () => void;
     markClean: () => void;
     updateProjectSettings: (settings: Partial<Project['settings']>) => void;
+  }
+
+  export type Store = State & Actions;
+}
+
+// ============================================================================
+// WEBCAM STORE CONTRACT
+// ============================================================================
+
+export namespace WebcamStoreContract {
+  export interface State {
+    // Webcam state
+    isEnabled: boolean;
+    stream: MediaStream | null;
+    deviceId: string | null;
+    
+    // Position and size (percentage of preview area: 0-100)
+    position: { x: number; y: number };
+    size: { width: number; height: number };
+    
+    // UI state
+    isDragging: boolean;
+    isResizing: boolean;
+    
+    // Error state
+    error: string | null;
+  }
+
+  export interface Actions {
+    // Webcam control
+    enableWebcam: (deviceId?: string) => Promise<void>;
+    disableWebcam: () => void;
+    
+    // Position and size
+    setPosition: (position: { x: number; y: number }) => void;
+    setSize: (size: { width: number; height: number }) => void;
+    
+    // UI state
+    setDragging: (dragging: boolean) => void;
+    setResizing: (resizing: boolean) => void;
+    
+    // Project persistence
+    loadFromProject: (settings?: {
+      enabled: boolean;
+      position: { x: number; y: number };
+      size: { width: number; height: number };
+      deviceId?: string;
+    }) => void;
+    getSettings: () => {
+      enabled: boolean;
+      position: { x: number; y: number };
+      size: { width: number; height: number };
+      deviceId?: string;
+    };
+    
+    // Error handling
+    setError: (error: string | null) => void;
   }
 
   export type Store = State & Actions;

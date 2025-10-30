@@ -100,7 +100,8 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPreviewComponentProps
       if (videoRef.current) {
         const currentTime = videoRef.current.currentTime;
         // Only call onTimeUpdate if time actually changed (avoid duplicate calls)
-        if (Math.abs(currentTime - lastTimeRef.current) > 0.1) {
+        // Reduced threshold to 0.016s (~1 frame at 60fps) for smoother updates
+        if (Math.abs(currentTime - lastTimeRef.current) > 0.016) {
           lastTimeRef.current = currentTime;
           onTimeUpdate(currentTime);
         }

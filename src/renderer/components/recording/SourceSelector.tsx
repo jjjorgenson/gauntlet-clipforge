@@ -25,6 +25,8 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
 
   // Load sources on mount
   useEffect(() => {
+    console.log('═══════════════════════════════════════');
+    console.log('🔴 STEP 3: Dialog opened, loading sources...');
     loadSources();
   }, []);
 
@@ -33,23 +35,42 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
     setError(null);
 
     try {
+      console.log('🔍 STEP 3A: Calling window.api.recording.getSources...');
+      console.log('API check:', {
+        hasWindowApi: !!window.api,
+        hasRecording: !!window.api?.recording,
+        hasGetSources: !!window.api?.recording?.getSources
+      });
+      
       const result = await window.api.recording.getSources({
         types: ['screen', 'window']
       });
       
+      console.log('✅ STEP 3C: Sources loaded:', result.sources.length);
+      console.log('Sources:', result.sources.map((s: RecordingSource) => ({
+        id: s.id.substring(0, 20),
+        name: s.name,
+        type: s.type
+      })));
+      
       setSources(result.sources);
+      console.log('✅ STEP 3 COMPLETE: Sources set in state');
       
       // Auto-select first source if none selected
       if (!selectedSource && result.sources.length > 0) {
+        console.log('🎯 Auto-selecting first source:', result.sources[0].name);
         onSourceSelect(result.sources[0]);
       }
       
     } catch (error) {
-      console.error('Failed to load recording sources:', error);
+      console.error('❌ STEP 3 FAILED: Failed to load recording sources:', error);
+      console.error('Error details:', error instanceof Error ? error.stack : error);
       setError('Failed to load recording sources. Please check permissions.');
     } finally {
       setIsLoading(false);
     }
+    
+    console.log('═══════════════════════════════════════');
   };
 
   const handleSourceSelect = (source: RecordingSource) => {
@@ -140,78 +161,79 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
           <p className="text-gray-500 text-sm">Make sure you have windows open or screens available</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3">
-          {sources.map((source) => (
-            <div
-              key={source.id}
-              onClick={() => handleSourceSelect(source)}
-              className={`
-                relative p-4 rounded-lg border-2 cursor-pointer transition-all
-                ${selectedSource?.id === source.id
-                  ? 'border-blue-500 bg-blue-500/10'
-                  : 'border-editor-border bg-editor-panel hover:border-editor-hover'
-                }
-                ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-editor-hover'}
-              `}
-            >
-              {/* Selection indicator */}
-              {selectedSource?.id === source.id && (
-                <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              )}
-
-              <div className="flex items-start gap-3">
-                {/* Thumbnail */}
-                <div className="flex-shrink-0">
-                  <img
-                    src={source.thumbnail}
-                    alt={source.name}
-                    className="w-16 h-12 object-cover rounded border border-editor-border"
-                    onError={(e) => {
-                      // Fallback to icon if thumbnail fails
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = `
-                          <div class="w-16 h-12 bg-editor-panel border border-editor-border rounded flex items-center justify-center">
-                            ${getSourceIcon(source).props.children}
-                          </div>
-                        `;
-                      }
-                    }}
-                  />
-                </div>
-
-                {/* Source info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-white font-medium truncate">
-                      {source.name}
-                    </span>
-                    <span className={`
-                      px-2 py-1 text-xs rounded-full
-                      ${source.type === 'screen' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-blue-500/20 text-blue-400'
-                      }
-                    `}>
-                      {getSourceTypeLabel(source)}
-                    </span>
+        <div className="max-h-96 overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {sources.map((source) => (
+              <div
+                key={source.id}
+                onClick={() => handleSourceSelect(source)}
+                className={`
+                  relative p-3 rounded-lg border-2 cursor-pointer transition-all
+                  ${selectedSource?.id === source.id
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-editor-border bg-editor-panel hover:border-editor-hover'
+                  }
+                  ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-editor-hover'}
+                `}
+              >
+                {/* Selection indicator */}
+                {selectedSource?.id === source.id && (
+                  <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                  <p className="text-gray-400 text-sm">
-                    {source.type === 'screen' 
-                      ? 'Entire screen capture' 
-                      : 'Application window'
-                    }
-                  </p>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {/* Thumbnail */}
+                  <div className="w-full">
+                    <img
+                      src={source.thumbnail}
+                      alt={source.name}
+                      className="w-full h-20 object-cover rounded border border-editor-border"
+                      onError={(e) => {
+                        // Fallback to icon if thumbnail fails
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div class="w-full h-20 bg-editor-panel border border-editor-border rounded flex items-center justify-center text-gray-500">
+                              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                ${source.type === 'screen' 
+                                  ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />'
+                                  : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />'
+                                }
+                              </svg>
+                            </div>
+                          `;
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Source info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col gap-1 mb-1">
+                      <span className="text-white font-medium text-sm truncate">
+                        {source.name}
+                      </span>
+                      <span className={`
+                        px-2 py-0.5 text-xs rounded-full self-start
+                        ${source.type === 'screen' 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-blue-500/20 text-blue-400'
+                        }
+                      `}>
+                        {getSourceTypeLabel(source)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 

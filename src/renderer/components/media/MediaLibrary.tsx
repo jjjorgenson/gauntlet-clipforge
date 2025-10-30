@@ -9,7 +9,6 @@ import React, { useEffect } from 'react';
 import { useMediaStore } from '../../store/mediaStore';
 import { MediaLibraryComponentProps } from '../../../shared/contracts/components';
 import { MediaGrid } from './MediaGrid';
-import { ImportButton } from './ImportButton';
 
 export const MediaLibrary: React.FC<MediaLibraryComponentProps.MediaLibrary> = ({ 
   className = '' 
@@ -91,17 +90,12 @@ export const MediaLibrary: React.FC<MediaLibraryComponentProps.MediaLibrary> = (
     }
   };
 
-  const handleImportSuccess = (clips: any[]) => {
-    addItems(clips);
-  };
-
   return (
     <div className={`media-library ${className}`}>
       {/* Header */}
       <div className="media-library-header bg-editor-panel border-b border-editor-border p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Media Library</h2>
-          <ImportButton onImportSuccess={handleImportSuccess} />
         </div>
 
         {/* Search and Sort Controls */}

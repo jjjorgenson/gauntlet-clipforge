@@ -7,4 +7,5 @@
 export { VideoPreview } from './VideoPreview';
 export { VideoPlayer } from './VideoPlayer';
 export { PlaybackControls } from './PlaybackControls';
+export { WebcamOverlay } from './WebcamOverlay';
 export type { VideoPlayerRef } from './VideoPlayer';

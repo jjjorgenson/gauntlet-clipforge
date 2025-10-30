@@ -86,7 +86,56 @@ export const ImportButton: React.FC<ImportButtonProps> = ({
     setImportError(null);
 
     try {
-      const filePaths = videoFiles.map(file => (file as any).path || file.name);
+      // Extract file paths - Electron provides `path` property on File objects from OS drag events
+      const filePaths: string[] = [];
+      
+      for (const file of videoFiles) {
+        // In Electron, File objects from OS drag events have a `path` property
+        const electronFile = file as File & { path?: string };
+        
+        console.log(`🔍 Inspecting file:`, {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          hasPath: !!electronFile.path,
+          path: electronFile.path
+        });
+        
+        if (electronFile.path) {
+          // Normalize path: remove file:// protocol if present, normalize slashes
+          let filePath = electronFile.path;
+          
+          // Remove file:// or file:/// prefix if present
+          filePath = filePath.replace(/^file:\/\/\/?/, '');
+          
+          // Normalize Windows paths: backslashes to forward slashes
+          filePath = filePath.replace(/\\/g, '/');
+          
+          // Validate it's an absolute path
+          if (filePath.startsWith('/') || /^[A-Za-z]:/.test(filePath)) {
+            filePaths.push(filePath);
+            console.log(`📁 Extracted file path: ${filePath}`);
+          } else {
+            console.warn(`⚠️ File path is not absolute, skipping: ${filePath}`);
+            setImportError(`Invalid file path: ${file.name}. Please drop files from your file manager.`);
+            setIsImporting(false);
+            return;
+          }
+        } else {
+          // If path is missing, this likely means files weren't dragged from OS file manager
+          console.error(`❌ File object missing 'path' property:`, file.name);
+          console.error(`File object keys:`, Object.keys(file));
+          setImportError(`Cannot import ${file.name}: File path not available. Please use the Import button or drag files from your file manager.`);
+          setIsImporting(false);
+          return;
+        }
+      }
+
+      if (filePaths.length === 0) {
+        throw new Error('No valid file paths extracted');
+      }
+
+      console.log(`📤 Importing ${filePaths.length} files via drag & drop:`, filePaths);
       
       const importResult = await window.api.media.import({
         filePaths
@@ -147,11 +196,6 @@ export const ImportButton: React.FC<ImportButtonProps> = ({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Drag & Drop Hint */}
-      <div className="text-xs text-gray-500 mt-1 text-center">
-        or drag files here
       </div>
     </div>
   );

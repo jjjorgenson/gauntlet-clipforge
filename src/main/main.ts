@@ -213,10 +213,14 @@ class ClipForgeApp {
       console.log(`🔗 Loading from dev server: ${devServerUrl}`);
     } else {
       // Production: Load from built files
-      const indexPath = path.join(__dirname, '../dist/index.html');
+      // In production, __dirname is dist-electron/src/main
+      // Built files are in app.asar/dist/
+      // Go up 3 levels: dist-electron/src/main -> dist-electron/src -> dist-electron -> root
+      const indexPath = path.join(__dirname, '../../../dist/index.html');
       this.mainWindow.loadFile(indexPath);
       
       console.log(`📂 Loading from: ${indexPath}`);
+      console.log(`🔍 __dirname: ${__dirname}`);
     }
 
     // Show window when ready

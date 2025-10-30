@@ -19,6 +19,7 @@ const IPC_CHANNELS = {
   MEDIA_GET_METADATA: 'media:get-metadata',
   MEDIA_OPEN_FILE_PICKER: 'media:open-file-picker',
   MEDIA_GENERATE_THUMBNAIL: 'media:generate-thumbnail',
+  MEDIA_SAVE_DROPPED_FILE: 'media:save-dropped-file',
 
   // Recording
   RECORDING_GET_SOURCES: 'recording:get-sources',
@@ -58,6 +59,7 @@ const api: IpcAPI = {
     getMetadata: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_GET_METADATA, req),
     openFilePicker: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_OPEN_FILE_PICKER, req),
     generateThumbnail: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_GENERATE_THUMBNAIL, req),
+    saveDroppedFile: (req) => ipcRenderer.invoke(IPC_CHANNELS.MEDIA_SAVE_DROPPED_FILE, req),
   },
 
   // Recording operations

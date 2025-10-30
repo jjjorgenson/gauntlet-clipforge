@@ -66,6 +66,17 @@ export namespace MediaIPC {
   export interface GenerateThumbnailResponse {
     thumbnail: string; // base64 data URL
   }
+  
+  // Save dropped file to temp location
+  export interface SaveDroppedFileRequest {
+    filename: string;
+    buffer: Buffer;
+    mimeType: string;
+  }
+  
+  export interface SaveDroppedFileResponse {
+    filePath: string; // absolute path to saved file
+  }
 }
 
 // ============================================================================
@@ -249,6 +260,7 @@ export interface IpcAPI {
     getMetadata: (req: MediaIPC.GetMetadataRequest) => Promise<MediaIPC.GetMetadataResponse>;
     openFilePicker: (req: MediaIPC.OpenFilePickerRequest) => Promise<MediaIPC.OpenFilePickerResponse>;
     generateThumbnail: (req: MediaIPC.GenerateThumbnailRequest) => Promise<MediaIPC.GenerateThumbnailResponse>;
+    saveDroppedFile: (req: MediaIPC.SaveDroppedFileRequest) => Promise<MediaIPC.SaveDroppedFileResponse>;
   };
 
   // Recording operations

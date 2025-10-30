@@ -18,6 +18,7 @@ export const createMockIpcAPI = (): IpcAPI => ({
     }),
     openFilePicker: async () => ({ filePaths: null }),
     generateThumbnail: async () => ({ thumbnail: '' }),
+    saveDroppedFile: async () => ({ filePath: '' }),
   },
   recording: {
     getSources: async () => ({ sources: [] }),

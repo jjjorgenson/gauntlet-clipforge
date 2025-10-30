@@ -8,10 +8,18 @@
 import React from 'react';
 import { useStore } from '../../store';
 import { useTimelineStore } from '../../store/timelineStore';
+import { useMediaStore } from '../../store/mediaStore';
 import { Button } from '../common';
+import { ImportButton } from '../media/ImportButton';
 
-export const Toolbar: React.FC = () => {
-  const { recording, export: exportStore, media, app } = useStore();
+export interface ToolbarProps {
+  onRecordClick?: () => void;  // Callback to open RecordDialog
+  isRecordingDrawerOpen?: boolean;  // Whether recording drawer is open
+}
+
+export const Toolbar: React.FC<ToolbarProps> = ({ onRecordClick, isRecordingDrawerOpen = false }) => {
+  const { export: exportStore } = useStore();
+  const addItems = useMediaStore((state) => state.addItems);
   
   // Direct subscriptions to timeline store for reactive updates
   const duration = useTimelineStore((state) => state.duration);
@@ -22,46 +30,38 @@ export const Toolbar: React.FC = () => {
   const zoom = useTimelineStore((state) => state.zoom);
   const setZoom = useTimelineStore((state) => state.setZoom);
 
-  // Handle import action
-  const handleImport = async () => {
-    try {
-      // Use the media API to open file picker
-      if (window.api?.media?.openFilePicker) {
-        const result = await window.api.media.openFilePicker({
-          allowMultiple: true,
-          filters: [
-            { name: 'Video Files', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'] },
-            { name: 'All Files', extensions: ['*'] }
-          ]
-        });
-        
-        if (result.filePaths && result.filePaths.length > 0) {
-          // Process imported files
-          console.log('Imported files:', result.filePaths);
-          // In a real implementation, this would process the files and add them to media store
-        }
-      }
-    } catch (error) {
-      console.error('Import failed:', error);
-    }
+  // Handle import success
+  const handleImportSuccess = (clips: any[]) => {
+    addItems(clips);
   };
 
   // Handle record action
-  const handleRecord = async () => {
-    try {
-      if (!recording.isRecording) {
-        // Load available sources first
-        await recording.loadSources();
-        // Show source picker
-        recording.setShowSourcePicker(true);
-      } else {
-        // Stop recording
-        const outputPath = await recording.stopRecording();
-        console.log('Recording saved to:', outputPath);
-      }
-    } catch (error) {
-      console.error('Recording failed:', error);
+  const handleRecord = (e?: React.MouseEvent) => {
+    console.log('═══════════════════════════════════════');
+    console.log('🔴 STEP 1: Record button clicked');
+    console.log('🎯 Button click event captured');
+    
+    // Stop propagation to prevent any parent handlers
+    if (e) {
+      e.stopPropagation();
     }
+    
+    console.log('🔍 STEP 1A: Checking if onRecordClick callback exists:', {
+      hasCallback: !!onRecordClick,
+      callbackType: typeof onRecordClick
+    });
+    
+    if (onRecordClick) {
+      console.log('✅ STEP 1B: Calling onRecordClick to open RecordDialog');
+      onRecordClick();
+      console.log('✅ STEP 1 COMPLETE: onRecordClick called successfully');
+      } else {
+      console.error('❌ STEP 1 FAILED: No onRecordClick callback provided!');
+      console.error('⚠️ Toolbar needs onRecordClick prop from App.tsx');
+      alert('Recording not configured. Please check console for details.');
+    }
+    
+    console.log('═══════════════════════════════════════');
   };
 
   // Handle export action
@@ -186,28 +186,25 @@ export const Toolbar: React.FC = () => {
 
         {/* Main Actions */}
         <div className="flex items-center space-x-2">
+          <ImportButton onImportSuccess={handleImportSuccess} />
+
           <Button
             variant="secondary"
             size="sm"
-            onClick={handleImport}
-            aria-label="Import media files"
-          >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            Import
-          </Button>
-
-          <Button
-            variant={recording.isRecording ? 'danger' : 'secondary'}
-            size="sm"
-            onClick={handleRecord}
-            aria-label={recording.isRecording ? 'Stop recording' : 'Start recording'}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRecord(e);
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+            }}
+            aria-label="Start recording"
+            className={isRecordingDrawerOpen ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-gray-900' : ''}
           >
             <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" fill={recording.isRecording ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"/>
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
             </svg>
-            {recording.isRecording ? 'Stop' : 'Record'}
+            Record
           </Button>
 
           <Button

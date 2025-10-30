@@ -20,6 +20,8 @@ const defaultState: TimelineStoreContract.State = {
   isPlaying: false,
   zoom: 1.0,
   scrollLeft: 0,
+  isGridSnapEnabled: false,
+  gridSnapSize: 1.0,
   selectedClipIds: [],
   selectedTrackId: null,
   clipboardClips: [],
@@ -162,14 +164,45 @@ export const useTimelineStore = create<TimelineStoreContract.Store>((set, get) =
   },
 
   splitClip: (clipId: string, splitTime: number) => {
+    console.log('🔪 STORE: splitClip called', { 
+      clipId: clipId.substring(0, 8), 
+      splitTime,
+      timestamp: Date.now()
+    });
+    
     set((state) => {
+      console.log('📊 STORE: Current state:', {
+        trackCount: state.tracks.length,
+        totalClips: state.tracks.flatMap(t => t.clips).length
+      });
+      
       const newTracks = state.tracks.map(track => ({
         ...track,
         clips: track.clips.flatMap(clip => {
           if (clip.id !== clipId) return [clip];
           
+          console.log('🎯 STORE: Found clip to split:', {
+            clipId: clip.id.substring(0, 8),
+            startTime: clip.startTime,
+            endTime: clip.endTime,
+            trimIn: clip.trimIn,
+            trimOut: clip.trimOut,
+            splitTime
+          });
+          
           const splitPosition = splitTime - clip.startTime;
-          if (splitPosition <= 0 || splitPosition >= (clip.trimOut - clip.trimIn)) {
+          const clipDuration = clip.endTime - clip.startTime; // Timeline duration
+          
+          console.log('📐 STORE: Split calculations:', {
+            splitPosition,
+            clipDuration,
+            check1: `splitPosition (${splitPosition}) <= 0 = ${splitPosition <= 0}`,
+            check2: `splitPosition (${splitPosition}) >= clipDuration (${clipDuration}) = ${splitPosition >= clipDuration}`,
+            willBlock: splitPosition <= 0 || splitPosition >= clipDuration
+          });
+          
+          if (splitPosition <= 0 || splitPosition >= clipDuration) {
+            console.warn('⚠️ STORE: Split blocked - position out of bounds');
             return [clip]; // No split needed
           }
 
@@ -187,9 +220,24 @@ export const useTimelineStore = create<TimelineStoreContract.Store>((set, get) =
             trimIn: clip.trimIn + splitPosition
           };
 
+          console.log('✅ STORE: Created split clips:', {
+            leftClip: {
+              id: leftClip.id.substring(0, 8),
+              timeline: `${leftClip.startTime.toFixed(2)}-${leftClip.endTime.toFixed(2)}`,
+              trim: `${leftClip.trimIn.toFixed(2)}-${leftClip.trimOut.toFixed(2)}`
+            },
+            rightClip: {
+              id: rightClip.id.substring(0, 8),
+              timeline: `${rightClip.startTime.toFixed(2)}-${rightClip.endTime.toFixed(2)}`,
+              trim: `${rightClip.trimIn.toFixed(2)}-${rightClip.trimOut.toFixed(2)}`
+            }
+          });
+
           return [leftClip, rightClip];
         })
       }));
+
+      console.log('💾 STORE: Split complete, updating state');
 
       return {
         tracks: newTracks,
@@ -297,6 +345,12 @@ export const useTimelineStore = create<TimelineStoreContract.Store>((set, get) =
 
   setScrollLeft: (scrollLeft: number) => {
     set({ scrollLeft: Math.max(0, scrollLeft) });
+  },
+
+  toggleGridSnap: () => {
+    set((state) => ({
+      isGridSnapEnabled: !state.isGridSnapEnabled
+    }));
   },
 
   // ============================================================================
