@@ -101,26 +101,60 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   // NOTE: handlePlay and handlePause removed - VideoPlayer no longer uses these callbacks
   // Play/pause is controlled via PlaybackControls → store → VideoPlayer.isPlaying prop
 
-  // Handle video ended
+  // Handle video ended - continue to next clip if available
   const handleEnded = () => {
-    pause();
-    // Move to next clip or end of timeline
+    console.log('🎬 Video ended at:', currentTime, '| isPlaying:', isPlaying);
+    
+    // Find next clip in timeline
     const nextClip = findNextClip();
+    
+    console.log('🔍 Next clip found:', nextClip ? `start=${nextClip.startTime}, end=${nextClip.endTime}` : 'NONE');
+    
     if (nextClip) {
-      seek(nextClip.startTime);
+      // If next clip starts at or before current time (overlapping/already playing),
+      // seek slightly forward to force video update
+      const seekTarget = nextClip.startTime <= currentTime 
+        ? currentTime + 0.01  // Advance 10ms to trigger update
+        : nextClip.startTime;
+      
+      console.log('▶️ Continuing to next clip - seeking to:', seekTarget);
+      
+      // Continue playing - seek to next clip WITHOUT pausing
+      seek(seekTarget);
+      
+      // CRITICAL: Ensure playback continues by explicitly calling play if needed
+      if (!isPlaying) {
+        console.log('⚠️ Was paused after seek, calling play()');
+        play();
+      }
+    } else {
+      console.log('⏹️ No more clips - pausing');
+      // No more clips - pause at end of timeline
+      pause();
     }
   };
 
-  // Find next clip in timeline
+  // Find next clip in timeline (searches all tracks)
   const findNextClip = () => {
+    let closestClip = null;
+    let closestStartTime = Infinity;
+    
+    // Search all tracks for the clip with the earliest start time after current time
+    // OR clips that are currently playing (currentTime is within the clip's range)
     for (const track of tracks) {
       for (const clip of track.clips) {
-        if (clip.startTime > currentTime) {
-          return clip;
+        const isCurrentlyPlaying = currentTime >= clip.startTime && currentTime < clip.endTime;
+        const startsAfterNow = clip.startTime >= currentTime - 0.01;
+        const isCandidate = (isCurrentlyPlaying || startsAfterNow) && clip.startTime < closestStartTime;
+        
+        if (isCandidate) {
+          closestClip = clip;
+          closestStartTime = clip.startTime;
         }
       }
     }
-    return null;
+    
+    return closestClip;
   };
 
   // Handle seeking
@@ -214,15 +248,16 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
               <>
                 {tracks.map((track, trackIndex) => {
                   // Find clip at current time for this track
+                  // Use strict boundaries: currentTime must be within [startTime, endTime)
                   const clipAtTime = track.clips.find(clip => 
-                    currentTime >= clip.startTime - 0.05 && currentTime <= clip.endTime + 0.05
+                    currentTime >= clip.startTime && currentTime < clip.endTime
                   );
 
                   if (!clipAtTime) return null;
 
+                  // Calculate video time relative to clip start
+                  // Don't clamp to clip duration - let video play to end naturally to trigger onEnded
                   const videoTime = Math.max(0, currentTime - clipAtTime.startTime);
-                  const clipDuration = clipAtTime.endTime - clipAtTime.startTime;
-                  const clampedVideoTime = Math.min(videoTime, clipDuration);
 
                   return (
                     <div 
@@ -239,11 +274,11 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
                       <VideoPlayer
                         ref={trackIndex === 0 ? videoRef : undefined}
                         clip={clipAtTime}
-                        currentTime={clampedVideoTime}
+                        currentTime={videoTime}
                         isPlaying={isPlaying}
                         volume={track.muted ? 0 : volume}
                         onTimeUpdate={trackIndex === 0 ? handleTimeUpdate : () => {}}
-                        onEnded={trackIndex === 0 ? handleEnded : () => {}}
+                        onEnded={handleEnded}
                       />
                     </div>
                   );

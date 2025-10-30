@@ -56,13 +56,20 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPreviewComponentProps
       }
     }, [clip?.sourceFile]); // Remove currentTime from dependencies!
 
-    // Sync video currentTime with timeline (only when NOT playing)
-    // During playback, the video drives the timeline via onTimeUpdate
+    // Sync video currentTime with timeline
+    // During normal playback, the video drives the timeline via onTimeUpdate
+    // But we still need to seek when timeline jumps (user seeking or clip transitions)
     useEffect(() => {
-      if (!isPlaying && videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 0.1) {
-        videoRef.current.currentTime = currentTime;
+      if (videoRef.current) {
+        const timeDiff = Math.abs(videoRef.current.currentTime - currentTime);
+        // Seek if difference is significant (> 0.1s)
+        // This handles both user seeks and automatic clip transitions
+        if (timeDiff > 0.1) {
+          videoRef.current.currentTime = currentTime;
+          lastTimeRef.current = currentTime;
+        }
       }
-    }, [currentTime, isPlaying]);
+    }, [currentTime]);
 
     // Handle play/pause state - store is the single source of truth
     useEffect(() => {
